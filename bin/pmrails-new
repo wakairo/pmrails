@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ "$#" -lt 2 ]; then
+    echo "pmrails-new VERSION APP_PATH [options]"
+    exit 1
+fi
+
+ver="$1"
+shift
+podman run -it --rm -v "$PWD":/x -w /x ruby:latest sh -c "gem install rails -v $ver && rails new $*"
