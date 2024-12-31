@@ -22,8 +22,8 @@ PmRails provides the following commands:
 - **`pmrails-new`**: Creates a new Rails application as a wrapper for `bin/rails new`.\
   **Usage**: `pmrails-new RAILS_VERSION APP_PATH [OPTIONS]`
 
-- **`pmexec`**: Executes arbitrary commands within the containerized environment.\
-  **Usage**: `pmexec COMMAND [OPTIONS]`
+- **`pmrailsenvexec`**: Executes arbitrary commands within the containerized environment.\
+  **Usage**: `pmrailsenvexec COMMAND [OPTIONS]`
 
 - **`pmbundle`**: Manages gems as a wrapper for `bundle`.\
   **Usage**: `pmbundle [BUNDLE_ARGS]`\
@@ -117,5 +117,5 @@ pmrails test
 pmrails console
 
 # Run the Rails setup script
-pmexec bin/setup
+pmrailsenvexec bin/setup
 ```

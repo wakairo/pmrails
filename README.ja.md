@@ -21,8 +21,8 @@ PmRailsは以下のコマンドを提供します:
 - **`pmrails-new`**: `bin/rails new`のラッパーとして、新しいRailsアプリケーションを作成します。\
   **使用方法**: `pmrails-new RAILS_VERSION APP_PATH [OPTIONS]`
 
-- **`pmexec`**: コンテナ環境内で任意のコマンドを実行します。\
-  **使用方法**: `pmexec COMMAND [OPTIONS]`
+- **`pmrailsenvexec`**: コンテナ環境内で任意のコマンドを実行します。\
+  **使用方法**: `pmrailsenvexec COMMAND [OPTIONS]`
 
 - **`pmbundle`**: `bundle`のラッパーとして、Gemを管理します。\
   **使用方法**: `pmbundle [BUNDLE_ARGS]`\
@@ -119,5 +119,5 @@ pmrails test
 pmrails console
 
 # Railsのセットアップスクリプトの実行
-pmexec bin/setup
+pmrailsenvexec bin/setup
 ```
