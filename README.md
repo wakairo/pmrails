@@ -16,17 +16,17 @@ to create an isolated, containerized environment for your Rails projects.
 
 PmRails provides the following commands:
 
-- **`pmrails`**: Runs Rails commands as a wrapper for `bin/rails`.
+- **`pmrails`**: Runs Rails commands as a wrapper for `bin/rails`.\
   **Usage**: `pmrails COMMAND [OPTIONS]`
 
-- **`pmrails-new`**: Creates a new Rails application as a wrapper for `bin/rails new`.
+- **`pmrails-new`**: Creates a new Rails application as a wrapper for `bin/rails new`.\
   **Usage**: `pmrails-new RAILS_VERSION APP_PATH [OPTIONS]`
 
-- **`pmexec`**: Executes arbitrary commands within the containerized environment.
+- **`pmexec`**: Executes arbitrary commands within the containerized environment.\
   **Usage**: `pmexec COMMAND [OPTIONS]`
 
-- **`pmbundle`**: Manages gems as a wrapper for `bundle`.
-  **Usage**: `pmbundle [BUNDLE_ARGS]`
+- **`pmbundle`**: Manages gems as a wrapper for `bundle`.\
+  **Usage**: `pmbundle [BUNDLE_ARGS]`\
   Gems are installed into the `vendor/bundle/` directory, which is used by `pmrails`.
 
 To reset the gem environment, simply delete the `vendor/bundle/` directory:

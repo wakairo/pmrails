@@ -25,7 +25,7 @@ PmRailsは以下のコマンドを提供します:
   **使用方法**: `pmexec COMMAND [OPTIONS]`
 
 - **`pmbundle`**: `bundle`のラッパーとして、Gemを管理します。\
-  **使用方法**: `pmbundle [BUNDLE_ARGS]`
+  **使用方法**: `pmbundle [BUNDLE_ARGS]`\
   Gemは`vendor/bundle/`ディレクトリにインストールされ、`pmrails`で使用されます。
 
 Gem環境をリセットするには、単に`vendor/bundle/`ディレクトリを削除してください:
