@@ -7,4 +7,4 @@ fi
 
 ver="$1"
 shift
-podman run -it --rm -v "$PWD":/x -w /x ruby:latest sh -c "gem install rails -v $ver && rails new $*"
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id ruby:latest sh -c "gem install rails -v $ver && rails new $* && echo /vendor/bundle/ >> .gitignore"

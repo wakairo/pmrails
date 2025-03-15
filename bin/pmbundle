@@ -4,4 +4,4 @@ ver=latest
 if test -e .ruby-version; then
     ver=$(cat .ruby-version | sed 's/^[^0-9]*\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\)[^0-9]*$/\1/g')
 fi
-podman run -it --rm -v "$PWD":/x -w /x ruby:"$ver" sh -c "bundle config set --global path 'vendor/bundle' && bundle $*"
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id ruby:"$ver" sh -c "bundle config set --global path 'vendor/bundle' && bundle $*"
