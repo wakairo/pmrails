@@ -88,12 +88,6 @@ Run Bundler to install Gems:
 pmbundle install
 ```
 
-If using Git for your app, add `/vendor/bundle/` to `.gitignore`. For example:
-
-```sh
-echo /vendor/bundle/ >> .gitignore
-```
-
 ### Running Rails Commands
 
 To run Rails commands, use pmrails. For example, to start the server:

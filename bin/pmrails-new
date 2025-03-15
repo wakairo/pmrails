@@ -6,5 +6,6 @@ if [ "$#" -lt 2 ]; then
 fi
 
 ver="$1"
+folder="$2"
 shift
-podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id ruby:latest sh -c "gem install rails -v $ver && rails new $* && echo /vendor/bundle/ >> .gitignore"
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id ruby:latest sh -c "gem install rails -v $ver && rails new $* && cd $folder && echo /vendor/bundle/ >> .gitignore"
