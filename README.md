@@ -22,6 +22,9 @@ PmRails provides the following commands:
 - **`pmrails-new`**: Creates a new Rails application as a wrapper for `bin/rails new`.\
   **Usage**: `pmrails-new RAILS_VERSION APP_PATH [OPTIONS]`
 
+- **`pmrails-new-plus`**: Performs the typical setup tasks for a new Rails application with pmrails all at once.\
+  **Usage**: `pmrails-new-plus RAILS_VERSION APP_PATH [OPTIONS]`
+
 - **`pmrailsenvexec`**: Executes arbitrary commands within the containerized environment.\
   **Usage**: `pmrailsenvexec COMMAND [OPTIONS]`
 
@@ -92,6 +95,25 @@ If using Git for your app, add `/vendor/bundle/` to `.gitignore`. For example:
 
 ```sh
 echo /vendor/bundle/ >> .gitignore
+```
+
+#### Creating a New Rails Application Using pmrails-new-plus
+
+Using pmrails-new-plus allows you to perform the typical setup tasks for a new Rails application with pmrails all at once.
+
+For example, executing the following command:
+
+```sh
+pmrails-new-plus 8.0.1 sample_app
+```
+
+will execute the equivalent of these four commands at once:
+
+```sh
+pmrails-new 8.0.1 sample_app --skip-bundle
+cd sample_app
+echo /vendor/bundle/ >> .gitignore
+pmbundle install
 ```
 
 ### Running Rails Commands

@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [ "$#" -lt 2 ]; then
+    echo "pmrails-new-plus VERSION APP_PATH [options]"
+    exit 1
+fi
+
+script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+app_path=$2
+
+set -e
+
+"$script_dir/pmrails-new" "$@" "--skip-bundle"
+cd "$app_path"
+echo "\n# Ignore a local folder where Bundler installs your project's gems.\n/vendor/bundle/" >> .gitignore
+"$script_dir/pmbundle" install
