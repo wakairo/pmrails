@@ -76,7 +76,7 @@ cd ~/tmp
 Create a new Rails app using the desired Rails version:
 
 ```sh
-pmrails-new 8.0.1 sample_app --skip-bundle
+pmrails-new 8.0 sample_app --skip-bundle
 ```
 
 Move to the application directory:
@@ -104,13 +104,13 @@ Using pmrails-new-plus allows you to perform the typical setup tasks for a new R
 For example, executing the following command:
 
 ```sh
-pmrails-new-plus 8.0.1 sample_app
+pmrails-new-plus 8.0 sample_app
 ```
 
 will execute the equivalent of these four commands at once:
 
 ```sh
-pmrails-new 8.0.1 sample_app --skip-bundle
+pmrails-new 8.0 sample_app --skip-bundle
 cd sample_app
 echo /vendor/bundle/ >> .gitignore
 pmbundle install

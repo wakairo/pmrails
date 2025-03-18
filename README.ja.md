@@ -77,7 +77,7 @@ cd ~/tmp
 以下の例のように、使用したいRailsバージョンで新しいRailsアプリを作成します。
 
 ```sh
-pmrails-new 8.0.1 sample_app --skip-bundle
+pmrails-new 8.0 sample_app --skip-bundle
 ```
 
 作成したアプリケーションのディレクトリに移動します。
@@ -105,13 +105,13 @@ pmrails-new-plusを利用すると、前述したpmrailsにおける新しいRai
 例えば以下のコマンドを実行すると、
 
 ```sh
-pmrails-new-plus 8.0.1 sample_app
+pmrails-new-plus 8.0 sample_app
 ```
 
 以下の4つのコマンドに相当する処理が一度に行われます。
 
 ```sh
-pmrails-new 8.0.1 sample_app --skip-bundle
+pmrails-new 8.0 sample_app --skip-bundle
 cd sample_app
 echo /vendor/bundle/ >> .gitignore
 pmbundle install
