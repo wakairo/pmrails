@@ -21,6 +21,9 @@ PmRailsは以下のコマンドを提供します:
 - **`pmrails-new`**: `bin/rails new`のラッパーとして、新しいRailsアプリケーションを作成します。\
   **使用方法**: `pmrails-new RAILS_VERSION APP_PATH [OPTIONS]`
 
+- **`pmrails-new-plus`**: pmrailsでの新しいRailsアプリケーションの典型的な作成作業を一度に行います。\
+  **使用方法**: `pmrails-new-plus RAILS_VERSION APP_PATH [OPTIONS]`
+
 - **`pmrailsenvexec`**: コンテナ環境内で任意のコマンドを実行します。\
   **使用方法**: `pmrailsenvexec COMMAND [OPTIONS]`
 
@@ -93,6 +96,25 @@ pmbundle install
 
 ```sh
 echo /vendor/bundle/ >> .gitignore
+```
+
+#### pmrails-new-plusを利用した新しいRailsアプリケーションの作成
+
+pmrails-new-plusを利用すると、前述したpmrailsにおける新しいRailsアプリケーションの典型的な作成作業を一度に行うことが出来ます。
+
+例えば以下のコマンドを実行すると、
+
+```sh
+pmrails-new-plus 8.0.1 sample_app
+```
+
+以下の4つのコマンドに相当する処理が一度に行われます。
+
+```sh
+pmrails-new 8.0.1 sample_app --skip-bundle
+cd sample_app
+echo /vendor/bundle/ >> .gitignore
+pmbundle install
 ```
 
 ### Railsのコマンドの実行
