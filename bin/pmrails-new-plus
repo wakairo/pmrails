@@ -5,12 +5,13 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 app_path=$2
 
 set -e
 
-"$script_dir/pmrails-new" "$@" "--skip-bundle"
+ver="$1"
+shift
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id --env "BUNDLE_PATH=vendor/bundle" ruby:latest sh -c "gem install rails -v $ver && rails new $*"
+
 cd "$app_path"
 echo "\n# Ignore a local folder where Bundler installs your project's gems.\n/vendor/bundle/" >> .gitignore
-"$script_dir/pmbundle" install
