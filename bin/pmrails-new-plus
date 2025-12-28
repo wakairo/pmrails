@@ -14,4 +14,7 @@ shift
 podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id --env "BUNDLE_PATH=vendor/bundle" ruby:latest sh -c "gem install rails -v $ver && rails new $*"
 
 cd "$app_path"
-echo "\n# Ignore a local folder where Bundler installs your project's gems.\n/vendor/bundle/" >> .gitignore
+cat <<'EOF' >> .gitignore
+# Ignore Bundler's local directory for installed gems.
+/vendor/bundle/
+EOF
