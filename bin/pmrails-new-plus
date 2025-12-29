@@ -5,14 +5,13 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-app_path=$2
+app_path="$2"
 
 set -e
 
-ver="$1"
-shift
-podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id --env "BUNDLE_PATH=vendor/bundle" ruby:latest sh -c "gem install rails -v $ver && rails new $*"
-
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id \
+       --env "BUNDLE_PATH=vendor/bundle" ruby:latest \
+       sh -c 'ver="$1"; shift; gem install rails -v "$ver" && rails new "$@"' -- "$@"
 cd "$app_path"
 cat <<'EOF' >> .gitignore
 # Ignore Bundler's local directory for installed gems.
