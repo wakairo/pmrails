@@ -2,6 +2,12 @@
 
 ver=latest
 if test -e .ruby-version; then
-    ver=$(cat .ruby-version | sed 's/^[^0-9]*\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\)[^0-9]*$/\1/g')
+    ver=$(sed -n '1s/^[^0-9]*\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*$/\1/p' .ruby-version)
+    if test -z "$ver" ; then
+	printf '%s\n' 'error: could not parse a version (major.minor.patch) from .ruby-version' >&2
+	printf 'first line: "%s"\n' "$(sed -n '1p' .ruby-version)" >&2
+	exit 2
+    fi
 fi
+
 podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id -p 3000:3000 --env "BUNDLE_PATH=vendor/bundle" ruby:"$ver" bin/rails "$@"
