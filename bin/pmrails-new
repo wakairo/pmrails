@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 if [ "$#" -lt 2 ]; then
     printf '%s\n' 'pmrails-new VERSION APP_PATH [options]' >&2

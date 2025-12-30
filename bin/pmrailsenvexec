@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 if [ "$#" -lt 1 ]; then
     printf '%s\n' 'pmrailsenvexec COMMAND [options]' >&2

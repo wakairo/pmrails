@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 ver=latest
 if test -e .ruby-version; then
