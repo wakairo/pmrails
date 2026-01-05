@@ -1,16 +1,19 @@
 #!/bin/sh
+set -eu
 
 if [ "$#" -lt 2 ]; then
-    echo "pmrails-new-plus VERSION APP_PATH [options]"
+    printf '%s\n' 'pmrails-new-plus VERSION APP_PATH [options]' >&2
     exit 1
 fi
 
-script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
-app_path=$2
+app_path="$2"
 
-set -e
-
-"$script_dir/pmrails-new" "$@" "--skip-bundle"
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id \
+       --tmpfs /home/pmrails --env HOME=/home/pmrails \
+       --env "BUNDLE_PATH=.pmrails/var/bundle" ruby:latest \
+       sh -c 'ver="$1"; shift; gem install rails -v "$ver" && rails new "$@"' -- "$@"
 cd "$app_path"
-echo "\n# Ignore a local folder where Bundler installs your project's gems.\n/vendor/bundle/" >> .gitignore
-"$script_dir/pmbundle" install
+cat <<'EOF' >> .gitignore
+# Ignore PmRails' project-local directory.
+/.pmrails/var/
+EOF
