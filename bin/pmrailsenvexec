@@ -10,10 +10,20 @@ ver=latest
 if test -e .ruby-version; then
     ver=$(sed -n '1s/^[^0-9]*\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*$/\1/p' .ruby-version)
     if test -z "$ver" ; then
-	printf '%s\n' 'error: could not parse a version (major.minor.patch) from .ruby-version' >&2
-	printf 'first line: "%s"\n' "$(sed -n '1p' .ruby-version)" >&2
-	exit 2
+        printf '%s\n' 'error: could not parse a version (major.minor.patch) from .ruby-version' >&2
+        printf 'first line: "%s"\n' "$(sed -n '1p' .ruby-version)" >&2
+        exit 2
     fi
 fi
 
-podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id -p 3000:3000 --env "BUNDLE_PATH=vendor/bundle" ruby:"$ver" "$@"
+VARDIR=".pmrails/var"
+mkdir -p "$VARDIR/home"
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id \
+       -p 3000:3000 \
+       --env "HOME=/x/$VARDIR/home" \
+       --env "XDG_CACHE_HOME=/x/$VARDIR/cache" \
+       --env "XDG_CONFIG_HOME=/x/$VARDIR/config" \
+       --env "XDG_DATA_HOME=/x/$VARDIR/share" \
+       --env "XDG_STATE_HOME=/x/$VARDIR/state" \
+       --env "BUNDLE_PATH=/x/$VARDIR/bundle" \
+       ruby:"$ver" "$@"

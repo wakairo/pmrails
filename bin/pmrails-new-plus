@@ -9,10 +9,11 @@ fi
 app_path="$2"
 
 podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id \
-       --env "BUNDLE_PATH=vendor/bundle" ruby:latest \
+       --tmpfs /home/pmrails --env HOME=/home/pmrails \
+       --env "BUNDLE_PATH=.pmrails/var/bundle" ruby:latest \
        sh -c 'ver="$1"; shift; gem install rails -v "$ver" && rails new "$@"' -- "$@"
 cd "$app_path"
 cat <<'EOF' >> .gitignore
-# Ignore Bundler's local directory for installed gems.
-/vendor/bundle/
+# Ignore PmRails' project-local directory.
+/.pmrails/var/
 EOF

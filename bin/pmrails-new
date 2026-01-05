@@ -6,5 +6,7 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id ruby:latest \
+podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id \
+       --tmpfs /home/pmrails --env HOME=/home/pmrails \
+       ruby:latest \
        sh -c 'ver="$1"; shift; gem install rails -v "$ver" && rails new "$@"' -- "$@"
