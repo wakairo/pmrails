@@ -2,18 +2,23 @@
 set -eu
 
 if [ "$#" -lt 2 ]; then
-    printf '%s\n' 'pmrails-new-plus VERSION APP_PATH [options]' >&2
+    printf 'Usage: %s\n' 'pmrails-new-plus VERSION APP_PATH [options]' >&2
     exit 1
 fi
 
+_PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=./lib/pmrails.sh
+. "${_PMRAILS_SCRIPT_DIR}/../lib/pmrails.sh"
+pmrails_setup
+
 app_path="$2"
 
-podman run -it --rm -v "$PWD":/x -w /x --userns=keep-id \
-       --tmpfs /home/pmrails --env HOME=/home/pmrails \
-       --env "BUNDLE_PATH=.pmrails/var/bundle" ruby:latest \
-       sh -c 'ver="$1"; shift; gem install rails -v "$ver" && rails new "$@"' -- "$@"
-cd "$app_path"
-cat <<'EOF' >> .gitignore
+_PMRAILS_ADDITIONAL_ARGS="--env BUNDLE_PATH=${_PMRAILS_VAR_DIR}/bundle"
+pmrails_podman_run_rails_new "$@"
+
+cd "${app_path}"
+cat <<'EOF' >>.gitignore
 # Ignore PmRails' project-local directory.
 /.pmrails/var/
+/.pmrails/config.local
 EOF

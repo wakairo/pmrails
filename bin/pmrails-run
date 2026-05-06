@@ -1,14 +1,11 @@
 #!/bin/sh
 set -eu
 
-if [ "$#" -lt 2 ]; then
-    printf 'Usage: %s\n' 'pmrails-new VERSION APP_PATH [options]' >&2
-    exit 1
-fi
-
 _PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=./lib/pmrails.sh
 . "${_PMRAILS_SCRIPT_DIR}/../lib/pmrails.sh"
 pmrails_setup
 
-pmrails_podman_run_rails_new "$@"
+pmrails_ensure_image
+pmrails_ensure_home_dir
+pmrails_exec_podman_run "$@"

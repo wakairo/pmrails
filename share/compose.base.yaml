@@ -1,0 +1,20 @@
+x-podman:
+  in_pod: false
+
+services:
+
+  rails-app:
+    image: ${_PMRAILS_IMAGE_NAME}
+    userns_mode: keep-id
+    init: true
+    volumes:
+      - ${PWD}:/x
+    working_dir: /x
+    environment:
+      HOME: /x/${_PMRAILS_VAR_DIR}/home
+      XDG_CACHE_HOME: /x/${_PMRAILS_VAR_DIR}/cache
+      XDG_CONFIG_HOME: /x/${_PMRAILS_VAR_DIR}/config
+      XDG_DATA_HOME: /x/${_PMRAILS_VAR_DIR}/share
+      XDG_STATE_HOME: /x/${_PMRAILS_VAR_DIR}/state
+      BUNDLE_PATH: /x/${_PMRAILS_VAR_DIR}/bundle
+    command: ["sleep", "infinity"]

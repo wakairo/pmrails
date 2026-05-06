@@ -1,0 +1,37 @@
+services:
+  rails-app:
+    environment:
+      BINDING: 0.0.0.0
+      CAPYBARA_SERVER_PORT: 45678
+      SELENIUM_HOST: selenium
+      DATABASE_URL: mysql2://root@db/
+    depends_on:
+      selenium: {condition: service_healthy}
+      db: {condition: service_healthy}
+
+  selenium:
+    image: selenium/standalone-chromium
+    shm_size: 2g
+    healthcheck:
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      test: ["CMD", "/opt/bin/check-grid.sh", "--host", "0.0.0.0", "--port", "4444"]
+
+  db:
+    image: mariadb:11
+    volumes:
+    - pmrails-mariadb-mysql-data:/var/lib/mysql
+    environment:
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'true'
+    healthcheck:
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      test:
+      - CMD
+      - healthcheck.sh
+      - "--connect"
+      - "--innodb_initialized"
+volumes:
+  pmrails-mariadb-mysql-data:
