@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `pmrails-run` for running arbitrary commands inside a single Rails container with project-local runtime directories under `.pmrails/var/`.
+- `pmrails-compose` as the multi-container entrypoint for Compose-based development.
+- `pmrails-init` to generate `.pmrails/config`, `.pmrails/Dockerfile`, and `.pmrails/compose.yaml` for an existing Rails project.
+- A Compose-based development workflow with built-in Selenium support and database presets for SQLite3, PostgreSQL, MySQL, Trilogy, and MariaDB variants.
+- Automatic patching of `test/application_system_test_case.rb` during `pmrails-init` so system tests can run against a remote Selenium container.
+- Layered configuration loading from system, user, project, and project-local config files.
+- Support for `PMRAILS_RUBY_VERSION`, `PMRAILS_RUBY_VERSION_AT_NEW`, `PMRAILS_PORTS`, `PMRAILS_PROJECT_NAME`, `PMRAILS_DOCKERFILE`, and `PMRAILS_COMPOSE_FILE`.
+- Support for custom `Dockerfile` and `compose.yaml` to allow building project-specific environments.
+- An `aliases` file with shorthand commands for common `pmrails-run` and `pmrails-compose` invocations.
+- Project development tooling and quality gates, including `Rakefile` tasks, RuboCop, SimpleCov, Bats, ShellCheck, shfmt, kcov, `.editorconfig`, `.gitignore`, and `.rubocop.yml`.
+- Automated shell and Ruby test coverage for the new CLI and configuration-generation paths.
+
+### Changed
+
+- `pmrails-new` and `pmrails-new-plus` now use the shared `lib/pmrails.sh` runtime setup instead of carrying their own inline Podman logic.
+- `pmrails-new-plus` now adds both `/.pmrails/var/` and `/.pmrails/config.local` to the generated app's `.gitignore`.
+- Legacy entrypoints now delegate to the new command surface instead of duplicating container-launch logic.
+- CLI usage errors now consistently begin with `Usage:`.
+
+### Deprecated
+
+- `pmrails`; use `pmrails-run bin/rails` instead.
+- `pmbundle`; use `pmrails-run bundle` instead.
+- `pmrailsenvexec` (renamed to `pmrails-run`); use `pmrails-run` instead.
+
 
 ## [1.1.0] - 2026-03-18
 

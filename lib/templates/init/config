@@ -1,0 +1,24 @@
+# Ruby version tag for the container image used by pmrails-run and pmrails-compose
+# (if unset: read from .ruby-version; if .ruby-version does not exist, use latest)
+#
+# PMRAILS_RUBY_VERSION="3.4.2"
+
+# Ruby version tag for the container image used when creating a new Rails app with pmrails-new and pmrails-new-plus
+#
+# PMRAILS_RUBY_VERSION_AT_NEW="3.4.2"
+
+# Space-separated list of port mappings (`host:container` or `container`) to publish from the Rails container
+#
+# PMRAILS_PORTS="3000:3000 5000"
+
+# Project name passed to podman-compose and used as part of the custom image repository name
+#
+# PMRAILS_PROJECT_NAME="my_app"
+
+# Path to the Dockerfile used to build a custom Rails container image
+#
+# PMRAILS_DOCKERFILE=".pmrails/Dockerfile"
+
+# Path to the Compose file used by pmrails-compose
+#
+# PMRAILS_COMPOSE_FILE=".pmrails/compose.yaml"

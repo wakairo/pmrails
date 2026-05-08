@@ -18,20 +18,28 @@ to create an isolated, containerized environment for your Rails projects.
 
 PmRails provides the following commands:
 
-- **`pmrails`**: Runs Rails commands as a wrapper around `bin/rails`.\
-  **Usage**: `pmrails COMMAND [OPTIONS]`
-
 - **`pmrails-new`**: Creates a new Rails application as a wrapper around `rails new`.\
   **Usage**: `pmrails-new RAILS_VERSION APP_PATH [OPTIONS]`
 
 - **`pmrails-new-plus`**: Performs the typical setup tasks for developing a new Rails application with PmRails in a single step.\
   **Usage**: `pmrails-new-plus RAILS_VERSION APP_PATH [OPTIONS]`
 
-- **`pmrailsenvexec`**: Executes arbitrary commands within the containerized environment.\
-  **Usage**: `pmrailsenvexec COMMAND [OPTIONS]`
+- **`pmrails-init`**: Generates a standard set of PmRails configuration files for an existing Rails application.\
+  **Usage**: `pmrails-init [OPTIONS]`
 
-- **`pmbundle`**: Manages gems as a wrapper around `bundle`.\
-  **Usage**: `pmbundle [BUNDLE_ARGS]`
+- **`pmrails-run`**: Runs an arbitrary command inside a single Rails container with project-local runtime directories.\
+  **Usage**: `pmrails-run COMMAND [OPTIONS]`
+
+- **`pmrails-compose`**: Wraps `podman-compose` to operate the project's Compose environment.\
+  **Usage**: `pmrails-compose [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]`
+
+### Deprecated Commands
+
+The following legacy commands are kept for backward compatibility and will be removed in a future release:
+
+- `pmrails` → use `pmrails-run bin/rails` instead.
+- `pmbundle` → use `pmrails-run bundle` instead.
+- `pmrailsenvexec` → use `pmrails-run` instead.
 
 
 ## Installation
@@ -40,6 +48,27 @@ PmRails provides the following commands:
 
 You must have Podman installed.
 Follow the [Podman Installation Instructions](https://podman.io/docs/installation) for your operating system.
+
+**If you plan to use `pmrails-compose` (Mode 3), you also need `podman-compose`.**
+
+> **Important:** You must install a recent version of `podman-compose` from PyPI. The versions provided by default OS package managers (such as `apt`) are often too old and may not work correctly with PmRails. We highly recommend using [`pipx`](https://pipx.pypa.io/stable/how-to/install-pipx/) for the installation.
+
+Example installation on Ubuntu/Debian using `pipx`:
+
+```sh
+# Install pipx
+sudo apt update
+sudo apt install pipx
+pipx ensurepath
+
+# Reload your shell to apply PATH changes
+exec $SHELL -l
+
+# Install the latest podman-compose from PyPI
+pipx install podman-compose
+```
+
+On other operating systems, install `pipx` by following the [official pipx installation guide](https://pipx.pypa.io/stable/how-to/install-pipx/), and then run `pipx install podman-compose`. For more details, see the [podman-compose repository](https://github.com/containers/podman-compose).
 
 ### Install PmRails
 
@@ -54,21 +83,59 @@ git clone https://github.com/wakairo/pmrails.git
 Add the `bin` directory to your system's PATH environment variable. For example, using bash:
 
 ```sh
-echo 'export PATH="$HOME/.var/pmrails/bin/:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.var/pmrails/bin:$PATH"' >> ~/.bashrc
 exec $SHELL -l
+```
+
+### (Optional) Set Up Aliases
+
+PmRails ships with a small `aliases` file that defines shorthand aliases for the most common invocations.
+Sourcing it lets you replace long commands like:
+
+```sh
+pmrails-compose exec rails-app bin/rails console
+```
+
+with shorter ones like:
+
+```sh
+pmrails-crails console
+```
+
+To install the aliases, append the file to your shell's startup script and reload the shell. For bash:
+
+```sh
+cat ~/.var/pmrails/aliases >> ~/.bashrc
+exec $SHELL -l
+```
+
+This adds the following aliases:
+
+```sh
+# pmrails aliases
+alias pmrails-rrails='pmrails-run bin/rails'
+alias pmrails-crails='pmrails-compose exec rails-app bin/rails'
+alias pmrails-cmpexe='pmrails-compose exec rails-app'
 ```
 
 
 ## Usage
 
-PmRails has two primary modes:
+PmRails has three primary modes:
 
 1. **Create a new Rails application only** — runs `rails new` inside a container.
-2. **Create *and* develop** — installs gems into the project (`.pmrails/var/bundle/`) to enable development with the PmRails toolset.
+2. **Create and develop with a single Rails container** — installs gems into `.pmrails/var/bundle/`, then uses `pmrails-run` for day-to-day Rails commands.
+3. **Create and develop with Compose** — installs gems into `.pmrails/var/bundle/`, then uses `.pmrails/compose.yaml` and `pmrails-compose` to operate a multi-container environment (Rails + database + Selenium, etc.).
+
+These modes share the same building blocks and can be combined freely:
+
+- A custom Rails container image (`.pmrails/Dockerfile`) can be used with or without a multi-container setup.
+- A multi-container setup (`.pmrails/compose.yaml`) can be used with or without a custom image.
+- `pmrails-init` generates both `Dockerfile` and `compose.yaml`, but you can keep only what you need.
 
 ### 1. Create a New Rails Application Only
 
-Use this mode if you only want to generate the application files and intend to run the application in another environment.
+Use this mode when you only want to generate the application files and intend to run the application in another environment.
 `pmrails-new` behaves the same as `rails new`.
 
 Navigate to a temporary directory. For example:
@@ -84,9 +151,9 @@ Create a new Rails application, specifying the Rails version and any `rails new`
 pmrails-new 8.1 new_app --database=postgresql
 ```
 
-### 2. Create and Develop a Rails Application
+### 2. Create and Develop with a Single Rails Container
 
-Use this mode when you plan to keep developing the application with PmRails.
+Use this mode when you plan to continue developing the application with PmRails using a single container that runs Rails directly.
 Gems are installed into the local `.pmrails/var/bundle/` directory, so the application can be developed without relying on the host Ruby environment.
 
 > **Note:** This section shows development with **SQLite**. However, you can use external databases (PostgreSQL, MySQL, etc.) by configuring your application — see **Using an External Database** below for examples.
@@ -110,9 +177,9 @@ When using this command, any `rails new` options can be specified after the appl
 
 `pmrails-new-plus` automatically performs the following tasks:
 
-* Creates a new Rails application
-* Installs gems into `.pmrails/var/bundle/`
-* Adds `.pmrails/var/` to `.gitignore`
+- Creates a new Rails application
+- Installs gems into `.pmrails/var/bundle/`
+- Adds `/.pmrails/var/` and `/.pmrails/config.local` to `.gitignore`
 
 #### Run Rails Commands
 
@@ -122,10 +189,10 @@ Navigate to the application directory:
 cd sample_app
 ```
 
-Use `pmrails` to run Rails commands. For example, to start the server:
+Use `pmrails-run` to run Rails commands. For example, to start the server:
 
 ```sh
-pmrails server -b 0.0.0.0
+pmrails-run bin/rails server -b 0.0.0.0
 ```
 
 Then, open your web browser and navigate to `http://localhost:3000/`.
@@ -134,23 +201,259 @@ Then, open your web browser and navigate to `http://localhost:3000/`.
 
 ```sh
 # Run Bundler to install gems
-pmbundle install
+pmrails-run bundle install
 
 # Run database migrations
-pmrails db:migrate
-
-# Execute tests
-pmrails test
+pmrails-run bin/rails db:migrate
+# Or, with the alias:
+pmrails-rrails db:migrate
 
 # Open the Rails console
-pmrails console
-
-# Run the Rails setup script
-pmrailsenvexec bin/setup
+pmrails-run bin/rails console
+# Or, with the alias:
+pmrails-rrails console
 ```
 
+> **Tip:** You can add a `.pmrails/Dockerfile` to customize the Rails container image used in this mode. Compose is not required to take advantage of a custom image — see [Custom Rails Container Image](#custom-rails-container-image).
 
-## `.pmrails` — Local Directories and Environment Variables
+### 3. Create and Develop with Compose
+
+Use this mode when you want PmRails to spin up Rails together with a database, a Selenium browser, or other services as separate containers.
+Gems are still installed into the local `.pmrails/var/bundle/` directory, so the host Ruby environment stays untouched.
+
+In this mode, think of the Compose environment as a long-lived workspace, not a one-shot container.
+You usually bring it up once, run many `exec` commands while it is running, stop it when you want to pause, start it again when you return, and finally tear it down when you are done.
+
+One important rule follows from that model: once you are working with Compose, run your day-to-day Rails commands through `pmrails-compose exec rails-app ...`, not `pmrails-run`.
+`pmrails-run` starts an isolated container and cannot talk to the database, Selenium, or other services managed by Compose.
+
+#### Prepare the Project
+
+First, create a new Rails application. For example:
+
+```sh
+mkdir -p ~/tmp
+cd ~/tmp
+pmrails-new-plus 8.1 sample_app --database=postgresql
+```
+
+Then move into the new application directory and generate the PmRails setting files:
+
+```sh
+cd sample_app
+pmrails-init --database=postgresql
+```
+
+When `--database` is given, `pmrails-init` writes a `compose.yaml` that includes a matching database service.
+Supported values are `sqlite3` (default), `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, and `mariadb-trilogy`.
+
+`pmrails-init` creates `.pmrails/config`, `.pmrails/Dockerfile`, and `.pmrails/compose.yaml`.
+These files can be used independently or together — see [Configuration](#configuration) for details.
+It also patches `test/application_system_test_case.rb` (when present) so that system tests can drive the Selenium container provided by Compose.
+
+> **Tip:** `pmrails-init` is safe to run multiple times. If configuration files already exist, it preserves your custom edits and writes the newly generated versions to files with a `.pmrails-init` suffix instead.
+
+> **Tip:** A `.pmrails/Dockerfile` is optional in this mode as well. If you only have a `.pmrails/compose.yaml`, PmRails uses an upstream `ruby` image instead of building a project-specific image.
+
+#### Run the Environment Day to Day
+
+The usual workflow is:
+
+1. Bring the environment up with `pmrails-compose up -d`.
+2. Do your work with `pmrails-compose exec rails-app ...` while it is running.
+3. Pause it with `pmrails-compose stop` when you want to come back later.
+4. Resume it with `pmrails-compose start`.
+5. Remove it with `pmrails-compose down` when you are done.
+
+Start with:
+
+```sh
+pmrails-compose up -d
+```
+
+Use `up` the first time you use the project, after changing `.pmrails/compose.yaml`, or whenever you are unsure what state the environment is in.
+If the services do not exist yet, `up` creates them. If they already exist but are stopped, `up` starts them again.
+
+Once the environment is running, do your work with `exec`:
+
+```sh
+pmrails-compose exec rails-app bundle install
+pmrails-compose exec rails-app bin/rails db:migrate
+pmrails-compose exec rails-app bin/rails console
+pmrails-compose exec rails-app bin/rails server
+```
+
+If you use the aliases, the same commands become:
+
+```sh
+pmrails-cmpexe bundle install
+pmrails-crails db:migrate
+pmrails-crails console
+pmrails-crails server
+```
+
+If you start the Rails server, open `http://localhost:3000/` in your browser.
+
+When you want to pause work without deleting the environment, run:
+
+```sh
+pmrails-compose stop
+```
+
+When you return, resume that stopped environment with:
+
+```sh
+pmrails-compose start
+```
+
+Use `start` when you simply want to continue a previously stopped environment as-is.
+If you changed `.pmrails/compose.yaml`, use `pmrails-compose up -d` instead so Compose can reconcile the environment with the current configuration.
+
+When you are truly finished and want to remove the Compose-managed containers and network, run:
+
+```sh
+pmrails-compose down
+```
+
+Named volumes are kept by default, so database data is preserved across normal `down` / `up` cycles.
+To remove the volumes too and fully wipe the database data, run:
+
+```sh
+pmrails-compose down -v
+```
+
+#### Reference: Compose State Transitions
+
+The following diagram shows the basic lifecycle of a Compose environment:
+
+![Compose state transitions](images/compose_states.svg)
+
+Practical points:
+
+- `up` is the general-purpose "make it match the current configuration" command. It brings the environment to **Running** from either **Base (Not created)** or **Stopped**, and is also safe to run when the environment is already **Running**.
+- `start` is narrower: it only resumes an already-created stopped environment and never recreates it from scratch. When the configuration has not changed, pairing `stop` with `start` is the fastest way to pause and resume work, since `stop` leaves containers in place rather than deleting them.
+- `down` tears the environment back down to **Base (Not created)** by removing the Compose-managed containers and network. Named volumes survive unless you also pass `-v`, so database data is preserved across a normal teardown.
+
+
+## Configuration
+
+PmRails is configured through a combination of:
+
+1. **Configuration files** — `config` files at multiple scopes.
+2. **Environment variables set by the caller** — override anything set by configuration files.
+3. **A custom `Dockerfile`** at `.pmrails/Dockerfile` (optional) — controls the Rails container image.
+4. **A custom `compose.yaml`** at `.pmrails/compose.yaml` (optional) — describes the multi-container environment.
+
+### Configuration Files
+
+PmRails sources configuration files from four scopes. Files that do not exist or are unreadable are silently skipped, and later scopes override earlier ones:
+
+| Scope         | Path                                                      | Typical Use                                              |
+| ------------- | --------------------------------------------------------- | -------------------------------------------------------- |
+| System        | `/etc/pmrails/config` (override path: `PMRAILS_SYS_CONF`) | Defaults set by a system administrator.                  |
+| User          | `${XDG_CONFIG_HOME:-${HOME}/.config}/pmrails/config`      | Defaults specific to your user account on this machine.  |
+| Project       | `./.pmrails/config`                                       | Project-shared settings (commit this file).              |
+| Project-local | `./.pmrails/config.local`                                 | Per-developer overrides for this project (gitignored).   |
+
+> **Tip:** To use a system config path other than `/etc/pmrails/config`, set the `PMRAILS_SYS_CONF` environment variable (for example, `export PMRAILS_SYS_CONF="/usr/local/etc/pmrails/config"`). This is useful on hosts where `/etc/` is read-only or unavailable, such as some immutable distributions.
+
+> **Note:** `pmrails-new-plus` adds both `/.pmrails/var/` and `/.pmrails/config.local` to the project's `.gitignore`, so project-local overrides are not committed.
+
+#### File Format
+
+Each file is a POSIX shell script that is sourced by the PmRails entry point. Most commonly, you set `PMRAILS_*` variables. For example:
+
+```sh
+# .pmrails/config
+PMRAILS_PORTS="3000:3000 5000:5000"
+PMRAILS_RUBY_VERSION_AT_NEW="3.4.8"
+```
+
+> **Warning:** Configuration files are sourced directly in the current shell. Only place trusted content, such as variable settings, in them.
+
+### Configuration Environment Variables
+
+The variables below can be set in a configuration file, exported in your shell, or passed inline before a `pmrails-*` command (for example: `PMRAILS_PORTS=8080:3000 pmrails-run bin/rails server -b 0.0.0.0`).
+
+#### `PMRAILS_RUBY_VERSION`
+
+Selects the Ruby version (and therefore the upstream `ruby:<version>` container image) used by `pmrails-run` and `pmrails-compose`. When unset, PmRails reads the version from `.ruby-version` in the project root; see [Ruby Version Resolution](#ruby-version-resolution) for the precise rules.
+
+```sh
+PMRAILS_RUBY_VERSION="3.3.7"
+```
+
+#### `PMRAILS_RUBY_VERSION_AT_NEW`
+
+Selects the Ruby version used to **generate** new Rails applications (`pmrails-new` and `pmrails-new-plus`). Defaults to `latest`. Use this to pin the generation environment to a specific Ruby release rather than relying on `latest`:
+
+```sh
+# Generate a new Rails 8.1 application using Ruby 3.4.8 instead of `latest`
+PMRAILS_RUBY_VERSION_AT_NEW=3.4.8 pmrails-new-plus 8.1 sample_app
+```
+
+#### `PMRAILS_PORTS`
+
+Configures the port mappings published by `pmrails-run`, and by the `rails-app` service in `pmrails-compose`. Each token is either `HOST_PORT:CONTAINER_PORT` or `CONTAINER_PORT` alone; multiple mappings are separated by spaces. When only a container port is given, the host port is auto-allocated by Podman; check the assigned port with `podman port <container>`.
+
+**Default:**
+
+```sh
+PMRAILS_PORTS="3000:3000"
+```
+
+**Examples (used inline before a command):**
+
+```sh
+# Publish container port 3000 on host port 3001
+PMRAILS_PORTS="3001:3000" pmrails-run bin/rails server -b 0.0.0.0
+
+# Run a one-shot command without publishing any ports (useful for analyzers
+# and other CLI tools that do not need to expose listening ports to the host)
+PMRAILS_PORTS= pmrails-run bin/brakeman
+
+# Publish multiple ports / port ranges
+PMRAILS_PORTS="3000:3000 1234-1236:1234-1236" pmrails-run bin/rails server -b 0.0.0.0
+```
+
+#### `PMRAILS_PROJECT_NAME`
+
+Overrides the project name. PmRails uses it as the `podman-compose` project name (`-p` flag) and as part of the project-specific image repository name. When unset, PmRails derives it from the basename of the current directory (sanitized to alphanumerics and underscores, truncated to 16 characters).
+
+```sh
+PMRAILS_PROJECT_NAME="sample_app"
+```
+
+#### `PMRAILS_DOCKERFILE`
+
+Path to the project Dockerfile. Defaults to `.pmrails/Dockerfile`. When the file exists, `pmrails-run` and `pmrails-compose` build and use a project-specific image (`pmrails-${PMRAILS_PROJECT_NAME}`); when it does not, an upstream `ruby` image is used directly. See [Custom Rails Container Image](#custom-rails-container-image).
+
+#### `PMRAILS_COMPOSE_FILE`
+
+Path to the project Compose configuration file. Defaults to `.pmrails/compose.yaml`. `pmrails-compose` requires this file to exist and exits with an error otherwise.
+
+### Custom Rails Container Image
+
+If `.pmrails/Dockerfile` exists, `pmrails-run` (and the `rails-app` service in `pmrails-compose`) builds and uses a project-specific image named `pmrails-${PMRAILS_PROJECT_NAME}:${PMRAILS_RUBY_VERSION}` instead of the upstream `ruby` image. This lets you preinstall system packages, native build tools, or other dependencies that your Rails application needs.
+
+`pmrails-init` generates a sensible Dockerfile that matches the database engine selected via `--database`. You can also write your own from scratch.
+
+A custom Dockerfile is optional in both Mode 2 and Mode 3. In Mode 2 it lets you customize the single Rails container without Compose.
+
+### Custom Compose Configuration
+
+If `.pmrails/compose.yaml` exists, `pmrails-compose` layers it on top of an internal base file and an auto-generated overlay (which carries the `PMRAILS_PORTS` mapping for the `rails-app` service). The merge order, with later files overriding earlier ones, is:
+
+1. PmRails-internal base (`share/compose.base.yaml`).
+2. Auto-generated overlay.
+3. Your `.pmrails/compose.yaml`.
+
+`pmrails-init` generates a `compose.yaml` that includes a service for the chosen database (SQLite3 needs none) and a Selenium service for system tests. You can edit this file freely or replace it entirely.
+
+> **Important:** When modifying or replacing this file, **you must use `rails-app` as the service name for your Rails container**. PmRails internal commands and auto-generated configurations explicitly rely on this exact service name to function correctly.
+
+
+## `.pmrails` — Local Directory and In-Container Environment Variables
 
 PmRails keeps all project-specific runtime files (gems, caches, configs, state)
 inside a project-local directory named `.pmrails/var/`.
@@ -170,14 +473,14 @@ The following table shows how environment variables are mapped to project-local 
 
 ### Benefits of this Design
 
-* **Cleanliness:** Keeps the host user’s `~/.gem`, `~/.bundle`, and other personal files untouched.
-* **Isolation:** Makes project state local and easy to reset.
+- **Cleanliness:** Keeps the host user's `~/.gem`, `~/.bundle`, and other personal files untouched.
+- **Isolation:** Makes project state local and easy to reset.
 
 ### Managing the `.pmrails` Directory
 
--   **Git:** Do not commit `.pmrails/var/` to source control. `pmrails-new-plus` adds it to `.gitignore` automatically.
--   **Reset:** `.pmrails/var/` is safe to remove. If you encounter issues, run `rm -rf .pmrails/var` and then `pmbundle install` to reset the environment.
--   **Security:** In multi-user environments, ensure `.pmrails/` is readable only by your user (e.g., `chmod -R go-rwx .pmrails`), as it may contain credentials or cached data.
+- **Git:** Do not commit `.pmrails/var/` to source control. `pmrails-new-plus` adds it to `.gitignore` automatically.
+- **Reset:** `.pmrails/var/` is safe to remove. If you encounter issues, run `rm -rf .pmrails/var` and then `pmrails-run bundle install` or `pmrails-compose exec rails-app bundle install` to reset the environment.
+- **Security:** In multi-user environments, ensure `.pmrails/` is readable only by your user (e.g., `chmod -R go-rwx .pmrails`), as it may contain credentials or cached data.
 
 
 ## Ruby Version Resolution
@@ -189,9 +492,10 @@ of a `.ruby-version` file in the current directory.
 
 The following commands read `.ruby-version` to determine the Ruby version:
 
-- `pmbundle`
-- `pmrails`
-- `pmrailsenvexec`
+- `pmrails-run`
+- `pmrails-compose`
+
+(`pmrails-new` and `pmrails-new-plus` use `PMRAILS_RUBY_VERSION_AT_NEW` instead, since the project being generated does not yet have a `.ruby-version`.)
 
 ### Behavior When `.ruby-version` Is Present or Absent
 
@@ -238,11 +542,15 @@ When doing so, previously generated local data (such as installed gems under
 the Ruby version, removing the `.pmrails/var/` directory and reinstalling gems
 is usually sufficient.
 
+> **Tip:** You can also override the resolved version explicitly by setting
+> `PMRAILS_RUBY_VERSION` in a configuration file or as an environment variable;
+> see [Configuration Environment Variables](#configuration-environment-variables).
+
 
 ## Using an External Database
 
 PmRails can connect to a database running on the host or to a separately run database container.
-One convenient method to have Rails (running inside a PmRails container) reach a host-bound database is to use `host.containers.internal`.
+One convenient method to have Rails (running inside a PmRails container) reach such a database is to use `host.containers.internal`.
 
 Though the following example is for PostgreSQL, the same approach works for other databases: start a database container on the host with the `-p` option to publish its port, and set `host: host.containers.internal` in `database.yml` with the appropriate adapter and credentials.
 
@@ -279,22 +587,24 @@ test:
   host: host.containers.internal
 ```
 
-After editing the config, run your usual PmRails commands (for example, `pmrails db:create` and `pmrails server -b 0.0.0.0`). The Rails process inside the PmRails container should then connect to the PostgreSQL server running in another container on the host.
+After editing the config, run your usual PmRails commands (for example, `pmrails-run bin/rails db:create` and `pmrails-run bin/rails server -b 0.0.0.0`). The Rails process inside the PmRails container should then connect to the PostgreSQL server running in another container on the host.
 
 ### Reference: Stop / Start / Remove the PostgreSQL Container
 
 Useful commands for lifecycle management of the host PostgreSQL container:
 
 ```sh
-# stop the postgres container
+# Stop the postgres container
 podman stop postgres
 
-# start (resume) the postgres container
+# Start (resume) the postgres container
 podman start postgres
 
-# remove the postgres container (before removing, stop the container)
+# Remove the postgres container (before removing, stop the container)
 podman rm postgres
 ```
+
+> **Note:** If you prefer running the database as part of the same Compose stack as your Rails application, see [Mode 3: Create and Develop with Compose](#3-create-and-develop-with-compose).
 
 
 ## Limitations
@@ -302,25 +612,15 @@ podman rm postgres
 PmRails is designed as a lightweight, predictable wrapper around Podman.
 To maintain simplicity and transparency, it makes several assumptions and trade-offs.
 
-### Fixed Port Forwarding
-
-The `pmrails` and `pmrailsenvexec` commands forward port **3000** from the container to the host by default.
-
-* This aligns with the default Rails development server port.
-* If port 3000 is already in use on the host, these commands will fail.
-* Custom port mappings are not supported at this time.
-
-### New Apps Use `ruby:latest`
-
-The `pmrails-new` and `pmrails-new-plus` commands always use the `ruby:latest` container image.
-
-* The Ruby version referenced by `latest` changes over time.
-* The environment used to generate a new Rails application may differ from the runtime environment specified later in `.ruby-version`.
-
 ### SELinux Considerations
 
 On systems with SELinux enabled, mounted host directories may not be writable from inside the container.
 
-* PmRails does **not** automatically apply `:z` or `:Z` mount options.
-* If access is denied, users are expected to adjust SELinux contexts manually (for example, using `chcon`).
-* This behavior is intentional to avoid implicitly weakening SELinux security policies.
+- PmRails does **not** automatically apply `:z` or `:Z` mount options.
+- If access is denied, users are expected to adjust SELinux contexts manually (for example, using `chcon`).
+- This behavior is intentional to avoid implicitly weakening SELinux security policies.
+
+
+## Contributing
+
+See the [contributing guide](CONTRIBUTING.md).

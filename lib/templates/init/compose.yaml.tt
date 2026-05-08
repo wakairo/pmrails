@@ -1,0 +1,32 @@
+services:
+  rails-app:
+    environment:
+      BINDING: 0.0.0.0
+      CAPYBARA_SERVER_PORT: 45678
+      SELENIUM_HOST: selenium
+<%- if url = database_url -%>
+      DATABASE_URL: <%= url %>
+<%- end -%>
+<%- if !service_dependencies.empty? -%>
+    depends_on:
+<%- service_dependencies.each do |dep| -%>
+      <%= dep %>
+<%- end -%>
+<%- end -%>
+
+  selenium:
+    image: selenium/standalone-chromium
+    shm_size: 2g
+    healthcheck:
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      test: ["CMD", "/opt/bin/check-grid.sh", "--host", "0.0.0.0", "--port", "4444"]
+
+<%= database_service_yaml_fragment -%>
+<%- if !compose_volume_names.empty? -%>
+volumes:
+<%- compose_volume_names.each do |vname| -%>
+  <%= vname %>:
+<%- end -%>
+<%- end -%>

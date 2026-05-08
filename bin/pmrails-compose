@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+_PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=./lib/pmrails.sh
+. "${_PMRAILS_SCRIPT_DIR}/../lib/pmrails.sh"
+pmrails_setup
+
+if [ ! -f "${PMRAILS_COMPOSE_FILE}" ]; then
+    printf '%s: %s\n' 'error: Compose file not found' "${PMRAILS_COMPOSE_FILE}" >&2
+    exit 1
+fi
+
+pmrails_ensure_image
+pmrails_ensure_home_dir
+pmrails_exec_podman_compose "$@"
