@@ -9,12 +9,19 @@ services:
     init: true
     volumes:
       - ${PWD}:/x
+      - ${_PMRAILS_VOLUME_NAME}:${_PMRAILS_GEM_HOME}
+      - ${_PMRAILS_SCRIPT_DIR}/../share/entrypoint:/pmrails-entrypoint:ro,z
+    entrypoint: /pmrails-entrypoint
     working_dir: /x
     environment:
+      GEM_HOME: ${_PMRAILS_GEM_HOME}
       HOME: /x/${_PMRAILS_VAR_DIR}/home
       XDG_CACHE_HOME: /x/${_PMRAILS_VAR_DIR}/cache
       XDG_CONFIG_HOME: /x/${_PMRAILS_VAR_DIR}/config
       XDG_DATA_HOME: /x/${_PMRAILS_VAR_DIR}/share
       XDG_STATE_HOME: /x/${_PMRAILS_VAR_DIR}/state
-      BUNDLE_PATH: /x/${_PMRAILS_VAR_DIR}/bundle
     command: ["sleep", "infinity"]
+
+volumes:
+  ${_PMRAILS_VOLUME_NAME}:
+    external: true

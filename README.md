@@ -124,8 +124,8 @@ alias pmrails-cmpexe='pmrails-compose exec rails-app'
 PmRails has three primary modes:
 
 1. **Create a new Rails application only** — runs `rails new` inside a container.
-2. **Create and develop with a single Rails container** — installs gems into `.pmrails/var/bundle/`, then uses `pmrails-run` for day-to-day Rails commands.
-3. **Create and develop with Compose** — installs gems into `.pmrails/var/bundle/`, then uses `.pmrails/compose.yaml` and `pmrails-compose` to operate a multi-container environment (Rails + database + Selenium, etc.).
+2. **Create and develop with a single Rails container** — uses a managed gem store, then runs day-to-day Rails commands with `pmrails-run`.
+3. **Create and develop with Compose** — uses the same managed gem store, then uses `.pmrails/compose.yaml` and `pmrails-compose` to operate a multi-container environment (Rails + database + Selenium, etc.).
 
 These modes share the same building blocks and can be combined freely:
 
@@ -154,7 +154,7 @@ pmrails-new 8.1 new_app --database=postgresql
 ### 2. Create and Develop with a Single Rails Container
 
 Use this mode when you plan to continue developing the application with PmRails using a single container that runs Rails directly.
-Gems are installed into the local `.pmrails/var/bundle/` directory, so the application can be developed without relying on the host Ruby environment.
+Gems are installed inside a PmRails-managed container environment, so the application can be developed without relying on the host Ruby environment.
 
 > **Note:** This section shows development with **SQLite**. However, you can use external databases (PostgreSQL, MySQL, etc.) by configuring your application — see **Using an External Database** below for examples.
 
@@ -178,7 +178,7 @@ When using this command, any `rails new` options can be specified after the appl
 `pmrails-new-plus` automatically performs the following tasks:
 
 - Creates a new Rails application
-- Installs gems into `.pmrails/var/bundle/`
+- Installs gems in the managed PmRails gem store
 - Adds `/.pmrails/var/` and `/.pmrails/config.local` to `.gitignore`
 
 #### Run Rails Commands
@@ -219,7 +219,7 @@ pmrails-rrails console
 ### 3. Create and Develop with Compose
 
 Use this mode when you want PmRails to spin up Rails together with a database, a Selenium browser, or other services as separate containers.
-Gems are still installed into the local `.pmrails/var/bundle/` directory, so the host Ruby environment stays untouched.
+Gems use the same managed PmRails gem store as `pmrails-run`, so the host Ruby environment stays untouched.
 
 In this mode, think of the Compose environment as a long-lived workspace, not a one-shot container.
 You usually bring it up once, run many `exec` commands while it is running, stop it when you want to pause, start it again when you return, and finally tear it down when you are done.
@@ -377,11 +377,21 @@ The variables below can be set in a configuration file, exported in your shell, 
 
 #### `PMRAILS_RUBY_VERSION`
 
-Selects the Ruby version (and therefore the upstream `ruby:<version>` container image) used by `pmrails-run` and `pmrails-compose`. When unset, PmRails reads the version from `.ruby-version` in the project root; see [Ruby Version Resolution](#ruby-version-resolution) for the precise rules.
+Selects the Ruby version used by `pmrails-run` and `pmrails-compose`. When unset, PmRails reads the version from `.ruby-version` in the project root; see [Ruby Version Resolution](#ruby-version-resolution) for the precise rules.
 
 ```sh
 PMRAILS_RUBY_VERSION="3.3.7"
 ```
+
+#### `PMRAILS_RUBY_VERSION_SUFFIX`
+
+Appends an optional suffix fragment to the Ruby image tag used by `pmrails-run` and `pmrails-compose`. The value must be empty or include its leading separator, such as `-bookworm` or `-slim-bookworm`.
+
+```sh
+PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"
+```
+
+For example, `PMRAILS_RUBY_VERSION="3.3.7"` with `PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"` selects `ruby:3.3.7-bookworm`. The default is an empty suffix.
 
 #### `PMRAILS_RUBY_VERSION_AT_NEW`
 
@@ -391,6 +401,8 @@ Selects the Ruby version used to **generate** new Rails applications (`pmrails-n
 # Generate a new Rails 8.1 application using Ruby 3.4.8 instead of `latest`
 PMRAILS_RUBY_VERSION_AT_NEW=3.4.8 pmrails-new-plus 8.1 sample_app
 ```
+
+> **Note:** To ensure maximum stability during project generation, these commands always use the official upstream `ruby` image and intentionally ignore `PMRAILS_RUBY_VERSION_SUFFIX`.
 
 #### `PMRAILS_PORTS`
 
@@ -432,11 +444,18 @@ Path to the project Dockerfile. Defaults to `.pmrails/Dockerfile`. When the file
 
 Path to the project Compose configuration file. Defaults to `.pmrails/compose.yaml`. `pmrails-compose` requires this file to exist and exits with an error otherwise.
 
+#### `PMRAILS_GEM_HOME_ABI`
+
+Overrides the ABI suffix used for the shared `GEM_HOME` volume name.
+This serves as an escape hatch for complex native-extension compatibility scenarios.
+Most users should leave this unset.
+For details, see [Automatic Gem Sharing](#automatic-gem-sharing).
+
 ### Custom Rails Container Image
 
-If `.pmrails/Dockerfile` exists, `pmrails-run` (and the `rails-app` service in `pmrails-compose`) builds and uses a project-specific image named `pmrails-${PMRAILS_PROJECT_NAME}:${PMRAILS_RUBY_VERSION}` instead of the upstream `ruby` image. This lets you preinstall system packages, native build tools, or other dependencies that your Rails application needs.
+If `.pmrails/Dockerfile` exists, `pmrails-run` (and the `rails-app` service in `pmrails-compose`) builds and uses a project-specific image named `pmrails-${PMRAILS_PROJECT_NAME}:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}` instead of the upstream `ruby` image. This lets you preinstall system packages, native build tools, or other dependencies that your Rails application needs.
 
-`pmrails-init` generates a sensible Dockerfile that matches the database engine selected via `--database`. You can also write your own from scratch.
+`pmrails-init` generates a sensible Dockerfile that matches the database engine selected via `--database`. The generated Dockerfile receives both `PMRAILS_RUBY_VERSION` and `PMRAILS_RUBY_VERSION_SUFFIX` as build arguments and uses them in `FROM ruby:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}`. You can also write your own from scratch.
 
 A custom Dockerfile is optional in both Mode 2 and Mode 3. In Mode 2 it lets you customize the single Rails container without Compose.
 
@@ -452,13 +471,15 @@ If `.pmrails/compose.yaml` exists, `pmrails-compose` layers it on top of an inte
 
 > **Important:** When modifying or replacing this file, **you must use `rails-app` as the service name for your Rails container**. PmRails internal commands and auto-generated configurations explicitly rely on this exact service name to function correctly.
 
+> **Note:** Completely overriding the `volumes`, `environment`, or `entrypoint` settings of the `rails-app` service (rather than appending to them) will break automatic gem sharing. If you need to customize these, review `share/compose.base.yaml` to ensure you preserve the required PmRails internal mappings.
 
 ## `.pmrails` — Local Directory and In-Container Environment Variables
 
-PmRails keeps all project-specific runtime files (gems, caches, configs, state)
+PmRails keeps project-specific runtime files such as caches, configs, and state
 inside a project-local directory named `.pmrails/var/`.
-It sets environment variables to direct the containerized process to use these paths.
-This design keeps your host user account clean and ensures the project is self-contained.
+Installed gems are managed separately in Podman named volumes; see [Automatic Gem Sharing](#automatic-gem-sharing).
+PmRails sets environment variables to direct the containerized process to use these paths.
+This design keeps your host user account clean while keeping project-local state easy to reset.
 
 The following table shows how environment variables are mapped to project-local directories:
 
@@ -469,7 +490,6 @@ The following table shows how environment variables are mapped to project-local 
 | `XDG_CONFIG_HOME`                |     `.pmrails/var/config` | Per-user configuration files                       |
 | `XDG_DATA_HOME`                  |      `.pmrails/var/share` | Optional data files used by some tools             |
 | `XDG_STATE_HOME`                 |      `.pmrails/var/state` | Optional state files used by some tools            |
-| `BUNDLE_PATH`                    |     `.pmrails/var/bundle` | Bundler gem installation path (project-local gems) |
 
 ### Benefits of this Design
 
@@ -479,8 +499,47 @@ The following table shows how environment variables are mapped to project-local 
 ### Managing the `.pmrails` Directory
 
 - **Git:** Do not commit `.pmrails/var/` to source control. `pmrails-new-plus` adds it to `.gitignore` automatically.
-- **Reset:** `.pmrails/var/` is safe to remove. If you encounter issues, run `rm -rf .pmrails/var` and then `pmrails-run bundle install` or `pmrails-compose exec rails-app bundle install` to reset the environment.
+- **Reset:** `.pmrails/var/` is safe to remove. If you encounter issues with project-local caches, configs, or state, run `rm -rf .pmrails/var` and then rerun your usual PmRails command.
 - **Security:** In multi-user environments, ensure `.pmrails/` is readable only by your user (e.g., `chmod -R go-rwx .pmrails`), as it may contain credentials or cached data.
+
+
+## Automatic Gem Sharing
+
+PmRails automatically stores installed gems in Podman named volumes mounted as `GEM_HOME`.
+In normal use, you do not need to manage this yourself: repeated `bundle install` runs can be faster, and compatible projects avoid storing duplicate gem copies.
+
+Installed gems are reused when both of these match:
+
+1. The resolved Ruby version.
+2. The `GEM_HOME` Application Binary Interface (ABI) suffix.
+
+Volumes without an ABI suffix, such as `pmrails-gem_home-3.4.8`, use the official Ruby image ABI. If you consistently use official Ruby images, this should work automatically.
+
+When mixing different images or host platforms, the core rule is: **the same ABI suffix must guarantee native-extension compatibility.** 
+
+If `PMRAILS_GEM_HOME_ABI` is unset, PmRails automatically derives the ABI suffix from the image tag. It removes a leading numeric Ruby-version prefix and one optional following `-`, while leaving other text in place to avoid merging incompatible gem stores too aggressively. For example, `3.4.8-trixie` becomes `trixie`.
+
+This means setting `PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"` normally also gives the shared `GEM_HOME` volume the ABI suffix `bookworm`.
+
+If this automatic derivation is incorrect for your use case, or if you need to manually split or merge gem stores, override it in a config file:
+
+```sh
+# .pmrails/config
+
+# Use a specific ABI suffix.
+PMRAILS_GEM_HOME_ABI="alpine3.22"
+
+# Or use the suffixless official Ruby image ABI volume.
+PMRAILS_GEM_HOME_ABI=""
+```
+
+Use `podman volume` to manage these gem stores. List them with `podman volume ls`; to reset one, remove its volume:
+
+```sh
+podman volume rm pmrails-gem_home-3.4.8-trixie
+```
+
+If the official Ruby image ABI changes for a Ruby version you already use, remove the suffixless volume for that Ruby version so gems with native extensions will be rebuilt.
 
 
 ## Ruby Version Resolution
@@ -503,7 +562,7 @@ The following commands read `.ruby-version` to determine the Ruby version:
   PmRails extracts a Ruby version from the first line of the file and uses the corresponding container image.
 
 - **When `.ruby-version` does not exist:**
-  PmRails defaults to using `ruby:latest`.
+  PmRails defaults to `latest` as the Ruby-version part of the image tag.
 
 ### Accepted `.ruby-version` Format
 
@@ -522,25 +581,27 @@ This design choice ensures unambiguous and reproducible container image selectio
 
 ### Relationship to Container Images
 
-The value read from `.ruby-version` is used directly as a container image tag:
+The value read from `.ruby-version` is used as the Ruby-version part of the container image tag. PmRails then appends `PMRAILS_RUBY_VERSION_SUFFIX`, if set:
 
-> `ruby:<major.minor.patch>`
+> `ruby:<major.minor.patch><PMRAILS_RUBY_VERSION_SUFFIX>`
 
-For example:
+For example, with the default empty suffix:
 
 > `.ruby-version`: `3.2.2` -> `ruby:3.2.2`
+
+With `PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"`:
+
+> `.ruby-version`: `3.2.2` -> `ruby:3.2.2-bookworm`
 
 PmRails does not perform version normalization or compatibility checks.
 
 ### Changing Ruby Versions
 
-Changing the Ruby version in `.ruby-version` effectively switches the container
-image used by PmRails.
+Changing the Ruby version in `.ruby-version` effectively switches the container image used by PmRails.
 
-When doing so, previously generated local data (such as installed gems under
-`.pmrails/var/`) may no longer be compatible. If you encounter issues after changing
-the Ruby version, removing the `.pmrails/var/` directory and reinstalling gems
-is usually sufficient.
+Shared `GEM_HOME` volumes are keyed by Ruby version, so installed gems are usually separated automatically when the Ruby version changes. If the image or platform ABI also changes, see [Automatic Gem Sharing](#automatic-gem-sharing).
+
+Project-local state under `.pmrails/var/` is still safe to remove if caches, configs, or state files cause issues after a version change.
 
 > **Tip:** You can also override the resolved version explicitly by setting
 > `PMRAILS_RUBY_VERSION` in a configuration file or as an environment variable;
@@ -616,8 +677,9 @@ To maintain simplicity and transparency, it makes several assumptions and trade-
 
 On systems with SELinux enabled, mounted host directories may not be writable from inside the container.
 
-- PmRails does **not** automatically apply `:z` or `:Z` mount options.
-- If access is denied, users are expected to adjust SELinux contexts manually (for example, using `chcon`).
+- PmRails does **not** automatically apply `:z` or `:Z` options to your Rails project directory mount.
+- PmRails may apply SELinux relabeling to its own helper mounts, such as the read-only PmRails entrypoint and library mounts.
+- If access is denied for project files, adjust SELinux contexts manually with `chcon`, or make the change persistent with `semanage` and `restorecon`.
 - This behavior is intentional to avoid implicitly weakening SELinux security policies.
 
 

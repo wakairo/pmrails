@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# shellcheck disable=SC2016,SC2034
+# shellcheck disable=SC2016,SC2034,SC2054
 
 load test_helper.bash
 
@@ -24,17 +24,39 @@ record_call() {
     ref=("$@")
 }
 
+bash_array_inspect() {
+    local array_name="$1"
+    local i
+    local inspected="("
+    local quoted
+    local -n array="$array_name"
+
+    for i in "${!array[@]}"; do
+        printf -v quoted "%q" "${array[$i]}"
+        inspected+="[$i]=$quoted "
+    done
+
+    inspected="${inspected% }"
+    inspected+=")"
+    printf "%s\n" "$inspected"
+}
+
 assert_array_equals() {
     local actual_name="$1"
     local expected_name="$2"
-    local i
-    local -n actual="$actual_name"
-    local -n expected="$expected_name"
+    local actual_inspect
+    local expected_inspect
 
-    assert_equal "${#actual[@]}" "${#expected[@]}"
-    for i in "${!expected[@]}"; do
-        assert_equal "${actual[$i]}" "${expected[$i]}"
-    done
+    actual_inspect="$(bash_array_inspect "$actual_name")"
+    expected_inspect="$(bash_array_inspect "$expected_name")"
+
+    if [ "$actual_inspect" != "$expected_inspect" ]; then
+        batslib_print_kv_single_or_multi 8 \
+            "expected" "$expected_inspect" \
+            "actual" "$actual_inspect" |
+            batslib_decorate "arrays differ" |
+            fail
+    fi
 }
 
 assert_recorded_call_equals() {
@@ -104,15 +126,38 @@ setup() {
 
     PMRAILS_IMAGE_REPO="pmrails-sample_app"
     PMRAILS_RUBY_VERSION="3.3.7"
+    PMRAILS_RUBY_VERSION_SUFFIX=""
     PMRAILS_DOCKERFILE=".pmrails/Dockerfile"
     PMRAILS_PROJECT_NAME="sample_app"
     PMRAILS_COMPOSE_FILE=".pmrails/compose.yaml"
     PMRAILS_RUBY_VERSION_AT_NEW="3.4.1"
     _PMRAILS_IMAGE_NAME="pmrails-sample_app:3.3.7"
+    _PMRAILS_VOLUME_NAME="pmrails-gem_home-4.0.3"
     _PMRAILS_SCRIPT_DIR="/opt/pmrails/bin"
 }
 
-@test "pmrails_ensure_image sets the image name and skips podman for the upstream ruby image" {
+@test "assert_array_equals reports full expected and actual arrays on mismatch" {
+    local expected=(
+        alpha
+        "two words"
+        gamma
+    )
+    local actual=(
+        alpha
+        different
+        gamma
+        extra
+    )
+
+    run assert_array_equals actual expected
+
+    assert_failure
+    assert_output --partial "-- arrays differ --"
+    assert_output --partial "expected : ([0]=alpha [1]=two\\ words [2]=gamma)"
+    assert_output --partial "actual   : ([0]=alpha [1]=different [2]=gamma [3]=extra)"
+}
+
+@test "pmrails_ensure_image selects the upstream ruby image without podman checks" {
     install_podman_stub
     PMRAILS_IMAGE_REPO="ruby"
     PMRAILS_RUBY_VERSION="3.2.2"
@@ -123,7 +168,7 @@ setup() {
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "0"
 }
 
-@test "pmrails_ensure_image skips building when the project image already exists" {
+@test "pmrails_ensure_image reuses an existing project image" {
     local expected_call=(
         image
         exists
@@ -140,7 +185,7 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_ensure_image builds the image when it is missing" {
+@test "pmrails_ensure_image builds a missing project image" {
     local expected_exists_call=(
         image
         exists
@@ -150,6 +195,8 @@ setup() {
         build
         --build-arg
         PMRAILS_RUBY_VERSION=3.3.7
+        --build-arg
+        PMRAILS_RUBY_VERSION_SUFFIX=
         -t
         pmrails-sample_app:3.3.7
         -f
@@ -167,10 +214,43 @@ setup() {
     assert_recorded_call_equals 2 expected_build_call
 }
 
-@test "pmrails_exec_podman_compose generates the override before exec and forwards each compose argument individually" {
+@test "pmrails_ensure_image builds a missing project image with suffix" {
+    local expected_exists_call=(
+        image
+        exists
+        pmrails-sample_app:3.3.7-bookworm
+    )
+    local expected_build_call=(
+        build
+        --build-arg
+        PMRAILS_RUBY_VERSION=3.3.7
+        --build-arg
+        PMRAILS_RUBY_VERSION_SUFFIX=-bookworm
+        -t
+        pmrails-sample_app:3.3.7-bookworm
+        -f
+        .pmrails/Dockerfile
+        .
+    )
+
+    install_podman_stub
+    PMRAILS_TEST_PODMAN_IMAGE_EXISTS_STATUS=1
+
+    PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"
+    pmrails_ensure_image
+
+    assert_equal "$PMRAILS_TEST_CALL_COUNT" "2"
+    assert_recorded_call_equals 1 expected_exists_call
+    assert_recorded_call_equals 2 expected_build_call
+}
+
+@test "pmrails_exec_podman_compose generates the port override before exec and preserves compose arguments" {
     local expected_call=(
         env
         PMRAILS_RUBY_VERSION=3.3.7
+        _PMRAILS_SCRIPT_DIR=/opt/pmrails/bin
+        _PMRAILS_GEM_HOME=/gem-home
+        _PMRAILS_VOLUME_NAME=pmrails-gem_home-4.0.3
         _PMRAILS_VAR_DIR=.pmrails/var
         _PMRAILS_IMAGE_NAME=pmrails-sample_app:3.3.7
         podman-compose
@@ -198,7 +278,7 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_exec_podman_run builds port arguments before exec and passes each podman argument individually (no TTY)" {
+@test "pmrails_exec_podman_run builds port flags before exec and preserves command arguments without TTY" {
     local expected_call=(
         podman
         run
@@ -209,6 +289,14 @@ setup() {
         3000:3000
         -p
         1234:1234
+        -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
         -v
         "$PWD:/x"
         -w
@@ -223,8 +311,6 @@ setup() {
         XDG_DATA_HOME=/x/.pmrails/var/share
         --env
         XDG_STATE_HOME=/x/.pmrails/var/state
-        --env
-        BUNDLE_PATH=/x/.pmrails/var/bundle
         pmrails-sample_app:3.3.7
         bundle
         exec
@@ -244,7 +330,7 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_exec_podman_run appends -t when STDOUT is a TTY" {
+@test "pmrails_exec_podman_run adds a TTY flag when STDOUT is a TTY" {
     local expected_call=(
         podman
         run
@@ -254,6 +340,14 @@ setup() {
         --userns=keep-id
         -p
         3000:3000
+        -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
         -v
         "$PWD:/x"
         -w
@@ -268,8 +362,6 @@ setup() {
         XDG_DATA_HOME=/x/.pmrails/var/share
         --env
         XDG_STATE_HOME=/x/.pmrails/var/state
-        --env
-        BUNDLE_PATH=/x/.pmrails/var/bundle
         pmrails-sample_app:3.3.7
         bin/rails
         -v
@@ -288,13 +380,21 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_exec_podman_run omits all port flags when the port builder returns an empty string (no TTY)" {
+@test "pmrails_exec_podman_run omits port flags when no ports are built" {
     local expected_call=(
         podman
         run
         -i
         --rm
         --userns=keep-id
+        -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
         -v
         "$PWD:/x"
         -w
@@ -309,8 +409,6 @@ setup() {
         XDG_DATA_HOME=/x/.pmrails/var/share
         --env
         XDG_STATE_HOME=/x/.pmrails/var/state
-        --env
-        BUNDLE_PATH=/x/.pmrails/var/bundle
         pmrails-sample_app:3.3.7
         ruby
         -v
@@ -326,12 +424,20 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_podman_run_rails_new forwards _PMRAILS_ADDITIONAL_ARGS and rails-new arguments individually (no TTY)" {
+@test "pmrails_podman_run_rails_new preserves rails new arguments without TTY" {
     local expected_call=(
         run
         -i
         --rm
         --userns=keep-id
+        -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
         -v
         "$PWD:/x"
         -w
@@ -340,14 +446,10 @@ setup() {
         /home/pmrails
         --env
         HOME=/home/pmrails
-        --network
-        host
-        --cap-add
-        SYS_PTRACE
         ruby:3.4.1
         sh
         -c
-        'ver="$1"; shift; gem install rails --no-document -v "${ver}" && rails new "$@"'
+        $'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    echo "pmrails: could not extract the installed Rails version from \\"gem install rails -v ${ver}\\" output" >&2\n    exit 1\nfi\nexec rails "_${real_ver}_" new "$@"\n'
         --
         8.0.2
         blog
@@ -357,47 +459,15 @@ setup() {
     )
 
     install_podman_stub
-    _PMRAILS_ADDITIONAL_ARGS="--network host --cap-add SYS_PTRACE"
 
+    _PMRAILS_IMAGE_NAME="ruby:3.4.1"
     pmrails_podman_run_rails_new 8.0.2 blog --skip-bundle --css tailwind >/dev/null
 
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_podman_run_rails_new omits additional podman arguments when _PMRAILS_ADDITIONAL_ARGS is unset (no TTY)" {
-    local expected_call=(
-        run
-        -i
-        --rm
-        --userns=keep-id
-        -v
-        "$PWD:/x"
-        -w
-        /x
-        --tmpfs
-        /home/pmrails
-        --env
-        HOME=/home/pmrails
-        ruby:3.4.1
-        sh
-        -c
-        'ver="$1"; shift; gem install rails --no-document -v "${ver}" && rails new "$@"'
-        --
-        7.2.0
-        myapp
-    )
-
-    install_podman_stub
-    unset _PMRAILS_ADDITIONAL_ARGS
-
-    pmrails_podman_run_rails_new 7.2.0 myapp >/dev/null
-
-    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
-    assert_recorded_call_equals 1 expected_call
-}
-
-@test "pmrails_podman_run_rails_new appends -t when STDOUT is a TTY" {
+@test "pmrails_podman_run_rails_new adds a TTY flag when STDOUT is a TTY" {
     local expected_call=(
         run
         -i
@@ -405,6 +475,14 @@ setup() {
         --rm
         --userns=keep-id
         -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
+        -v
         "$PWD:/x"
         -w
         /x
@@ -415,7 +493,7 @@ setup() {
         ruby:3.4.1
         sh
         -c
-        'ver="$1"; shift; gem install rails --no-document -v "${ver}" && rails new "$@"'
+        $'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    echo "pmrails: could not extract the installed Rails version from \\"gem install rails -v ${ver}\\" output" >&2\n    exit 1\nfi\nexec rails "_${real_ver}_" new "$@"\n'
         --
         8.1.1
         store
@@ -423,9 +501,97 @@ setup() {
 
     install_podman_stub
     install_stdout_is_tty_stub
-    unset _PMRAILS_ADDITIONAL_ARGS
 
+    _PMRAILS_IMAGE_NAME="ruby:3.4.1"
     pmrails_podman_run_rails_new 8.1.1 store
+
+    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
+    assert_recorded_call_equals 1 expected_call
+}
+
+@test "pmrails_exec_podman_run_init preserves init arguments without TTY" {
+    local expected_call=(
+        podman
+        run
+        -i
+        --rm
+        --userns=keep-id
+        -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
+        -v
+        /opt/pmrails/bin/../lib:/pmrails/lib:ro,z
+        -v
+        "$PWD:/x"
+        -w
+        /x
+        --tmpfs
+        /home/pmrails
+        --env
+        HOME=/home/pmrails
+        ruby:3.4.1
+        sh
+        -c
+        'gem install --conservative thor activesupport && ruby /pmrails/lib/pmrails.rb init "$@"'
+        --
+        -d
+        mysql
+    )
+
+    install_exec_stub
+
+    _PMRAILS_IMAGE_NAME="ruby:3.4.1"
+    pmrails_exec_podman_run_init -d mysql
+
+    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
+    assert_recorded_call_equals 1 expected_call
+}
+
+@test "pmrails_exec_podman_run_init adds a TTY flag when STDOUT is a TTY" {
+    local expected_call=(
+        podman
+        run
+        -i
+        -t
+        --rm
+        --userns=keep-id
+        -v
+        pmrails-gem_home-4.0.3:/gem-home
+        --env
+        GEM_HOME=/gem-home
+        -v
+        /opt/pmrails/bin/../share/entrypoint:/pmrails-entrypoint:ro,z
+        --entrypoint
+        /pmrails-entrypoint
+        -v
+        /opt/pmrails/bin/../lib:/pmrails/lib:ro,z
+        -v
+        "$PWD:/x"
+        -w
+        /x
+        --tmpfs
+        /home/pmrails
+        --env
+        HOME=/home/pmrails
+        ruby:3.4.1
+        sh
+        -c
+        'gem install --conservative thor activesupport && ruby /pmrails/lib/pmrails.rb init "$@"'
+        --
+        -d
+        mysql
+    )
+
+    install_exec_stub
+    install_stdout_is_tty_stub
+
+    _PMRAILS_IMAGE_NAME="ruby:3.4.1"
+    pmrails_exec_podman_run_init -d mysql
 
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
     assert_recorded_call_equals 1 expected_call

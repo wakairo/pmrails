@@ -13,7 +13,8 @@ pmrails_setup
 
 app_path="$2"
 
-_PMRAILS_ADDITIONAL_ARGS="--env BUNDLE_PATH=${_PMRAILS_VAR_DIR}/bundle"
+pmrails_resolve_image_for_new
+pmrails_ensure_volume
 pmrails_podman_run_rails_new "$@"
 
 cd "${app_path}"

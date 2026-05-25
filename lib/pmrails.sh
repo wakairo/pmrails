@@ -3,6 +3,7 @@
 # PmRails core library functions.
 # This file is intended to be sourced, not executed directly.
 
+readonly _PMRAILS_GEM_HOME="/gem-home"
 readonly _PMRAILS_VAR_DIR=".pmrails/var"
 readonly _PMRAILS_COMPOSE_OVERRIDE_FILE=".pmrails/var/compose.override.yaml"
 
@@ -179,6 +180,7 @@ pmrails_load_static_defaults() {
 #   PMRAILS_PROJECT_NAME - Read/Modified. Defaults to a sanitized, truncated
 #       form of the current directory name.
 #   PMRAILS_IMAGE_REPO - Read/Modified. Resolved by pmrails_resolve_image_repo.
+#   PMRAILS_RUBY_VERSION_SUFFIX - Read/Modified.
 #   PMRAILS_RUBY_VERSION_AT_NEW - Read/Modified.
 #   PMRAILS_COMPOSE_FILE - Read/Modified.
 #   PWD - Read. Must be set. Used to derive PMRAILS_PROJECT_NAME.
@@ -202,6 +204,7 @@ pmrails_fill_dynamic_defaults() {
         exit 2
     fi
     pmrails_resolve_image_repo
+    PMRAILS_RUBY_VERSION_SUFFIX=${PMRAILS_RUBY_VERSION_SUFFIX:-}
     PMRAILS_RUBY_VERSION_AT_NEW=${PMRAILS_RUBY_VERSION_AT_NEW:-'latest'}
     PMRAILS_COMPOSE_FILE=${PMRAILS_COMPOSE_FILE:-'.pmrails/compose.yaml'}
 }
@@ -221,6 +224,7 @@ pmrails_fill_dynamic_defaults() {
 # On success, entrypoint scripts can rely on at least the following variables
 # being ready for use:
 #   PMRAILS_RUBY_VERSION
+#   PMRAILS_RUBY_VERSION_SUFFIX
 #   PMRAILS_IMAGE_REPO
 #   PMRAILS_RUBY_VERSION_AT_NEW
 #   PMRAILS_PORTS
@@ -255,7 +259,7 @@ pmrails_ensure_home_dir() {
     mkdir -p "${_PMRAILS_VAR_DIR}/home"
 }
 
-# Ensures that the container image "<repo>:<version>" exists locally.
+# Ensures that the container image "<repo>:<tag>" exists locally.
 #
 #   - If PMRAILS_IMAGE_REPO is "ruby", podman is not invoked at all. The
 #     upstream ruby image is left to be pulled on demand by a later
@@ -268,16 +272,120 @@ pmrails_ensure_home_dir() {
 # Globals:
 #   PMRAILS_IMAGE_REPO - Read. Must be set.
 #   PMRAILS_RUBY_VERSION - Read. Must be set.
+#   PMRAILS_RUBY_VERSION_SUFFIX - Read. Must be set. Empty or a Ruby image tag
+#       suffix fragment including its leading separator, such as "-bookworm".
 #   PMRAILS_DOCKERFILE - Read. Used as the Dockerfile path for podman build.
-#   _PMRAILS_IMAGE_NAME - Modified. Always set to "<repo>:<version>".
+#   _PMRAILS_IMAGE_TAG - Modified.
+#   _PMRAILS_IMAGE_NAME - Modified. Always set to "<repo>:<tag>".
 # Returns:
 #   0: Image exists or was successfully built.
 #   Non-zero: Propagates the exit status of "podman build" on failure.
 pmrails_ensure_image() {
-    _PMRAILS_IMAGE_NAME="${PMRAILS_IMAGE_REPO}:${PMRAILS_RUBY_VERSION}"
+    _PMRAILS_IMAGE_TAG="${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}"
+    _PMRAILS_IMAGE_NAME="${PMRAILS_IMAGE_REPO}:${_PMRAILS_IMAGE_TAG}"
     if [ "ruby" != "${PMRAILS_IMAGE_REPO}" ] && ! podman image exists "${_PMRAILS_IMAGE_NAME}"; then
-        podman build --build-arg PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" -t "${_PMRAILS_IMAGE_NAME}" -f "${PMRAILS_DOCKERFILE}" .
+        podman build --build-arg PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" --build-arg PMRAILS_RUBY_VERSION_SUFFIX="${PMRAILS_RUBY_VERSION_SUFFIX}" -t "${_PMRAILS_IMAGE_NAME}" -f "${PMRAILS_DOCKERFILE}" .
     fi
+}
+
+# Resolves the upstream Ruby image used for project creation commands.
+#
+# This does not check, pull, or build the image. The upstream ruby image is left
+# to be pulled on demand by a later podman run.
+#
+# Globals:
+#   PMRAILS_RUBY_VERSION_AT_NEW - Read. Selects the upstream ruby image tag.
+#   _PMRAILS_IMAGE_TAG - Modified. Set to PMRAILS_RUBY_VERSION_AT_NEW.
+#   _PMRAILS_IMAGE_NAME - Modified. Set to "ruby:<tag>".
+# Returns:
+#   0: Always succeeds.
+pmrails_resolve_image_for_new() {
+    _PMRAILS_IMAGE_TAG="${PMRAILS_RUBY_VERSION_AT_NEW}"
+    _PMRAILS_IMAGE_NAME="ruby:${_PMRAILS_IMAGE_TAG}"
+}
+
+# Resolves the Ruby version used to namespace the shared GEM_HOME volume.
+#
+# If the image tag begins with a major.minor.patch Ruby version, that version
+# is used without invoking podman. Otherwise, a one-shot container is run to
+# print the image's actual RUBY_VERSION.
+#
+# Arguments:
+#   $1 - Image tag to use as a Ruby-version hint.
+#   $2 - Image name to run when the tag does not contain a full Ruby version.
+# Outputs:
+#   Writes the resolved Ruby version to STDOUT.
+pmrails_resolve_volume_ruby_version() {
+    _pmrails_image_tag="$1"
+    _pmrails_image_name="$2"
+
+    _pmrails_volume_ruby_version=$(printf "%s\n" "${_pmrails_image_tag}" | sed -n '1s/^\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*$/\1/p')
+    if [ -z "${_pmrails_volume_ruby_version}" ]; then
+        _pmrails_volume_ruby_version=$(podman run --rm "${_pmrails_image_name}" ruby -e 'puts RUBY_VERSION')
+    fi
+    printf "%s\n" "${_pmrails_volume_ruby_version}"
+
+    unset _pmrails_image_tag _pmrails_image_name _pmrails_volume_ruby_version
+}
+
+# Resolves PMRAILS_GEM_HOME_ABI for the selected image tag.
+#
+# Resolution rules:
+#   1. If PMRAILS_GEM_HOME_ABI is set, preserve it verbatim. An empty
+#      string is meaningful and disables the compatibility suffix.
+#   2. If PMRAILS_GEM_HOME_ABI is unset and _PMRAILS_IMAGE_TAG is "latest",
+#      set PMRAILS_GEM_HOME_ABI to an empty string to avoid using "latest"
+#      as a compatibility key.
+#   3. If PMRAILS_GEM_HOME_ABI is unset and _PMRAILS_IMAGE_TAG is not
+#      "latest", derive the key by removing a leading numeric Ruby-version
+#      prefix and one optional following "-". It removes at most a
+#      major[.minor[.patch]] prefix, leaving extra version-like text and other
+#      separators in the ABI suffix to avoid merging incompatible gem stores.
+#      For example, "4.0-trixie" becomes "trixie", and
+#      "4.0.3-slim-trixie" becomes "slim-trixie".
+#
+# Globals:
+#   PMRAILS_GEM_HOME_ABI - Read/Modified.
+#   _PMRAILS_IMAGE_TAG - Read when PMRAILS_GEM_HOME_ABI is unset.
+# Returns:
+#   0: Always succeeds.
+pmrails_resolve_gem_home_abi() {
+    if [ -z "${PMRAILS_GEM_HOME_ABI+x}" ]; then
+        if [ "${_PMRAILS_IMAGE_TAG}" = "latest" ]; then
+            PMRAILS_GEM_HOME_ABI=""
+        else
+            PMRAILS_GEM_HOME_ABI=$(printf "%s\n" "${_PMRAILS_IMAGE_TAG}" | sed 's/^[0-9]\{1,\}\(\.[0-9]\{1,\}\)\{0,2\}-\{0,1\}//')
+        fi
+    fi
+}
+
+# Ensures that the shared GEM_HOME volume for the selected image exists.
+#
+# The volume name is built from:
+#   1. The image's major.minor.patch Ruby version
+#   2. The optional GEM_HOME ABI suffix
+#
+# Globals:
+#   PMRAILS_GEM_HOME_ABI - Read/Modified indirectly via
+#       pmrails_resolve_gem_home_abi.
+#   _PMRAILS_IMAGE_TAG - Read. Used as a Ruby-version hint and ABI suffix
+#       source.
+#   _PMRAILS_IMAGE_NAME - Read. Used to query RUBY_VERSION when the tag does
+#       not include a major.minor.patch version.
+#   _PMRAILS_VOLUME_NAME - Modified. Set to the created volume name.
+# Returns:
+#   0: Volume exists or was created.
+pmrails_ensure_volume() {
+    pmrails_resolve_gem_home_abi
+    _pmrails_volume_ruby_version=$(pmrails_resolve_volume_ruby_version "${_PMRAILS_IMAGE_TAG}" "${_PMRAILS_IMAGE_NAME}")
+
+    _PMRAILS_VOLUME_NAME="pmrails-gem_home-${_pmrails_volume_ruby_version}"
+    if [ -n "${PMRAILS_GEM_HOME_ABI}" ]; then
+        _PMRAILS_VOLUME_NAME="${_PMRAILS_VOLUME_NAME}-${PMRAILS_GEM_HOME_ABI}"
+    fi
+    podman volume create --ignore "${_PMRAILS_VOLUME_NAME}" >/dev/null
+
+    unset _pmrails_volume_ruby_version
 }
 
 # Generates a Compose override YAML file for port binding configuration from
@@ -337,9 +445,13 @@ EOF
 #   PMRAILS_RUBY_VERSION - Read. Exported to compose environment.
 #   PMRAILS_PROJECT_NAME - Read. Passed to podman-compose via the -p flag.
 #   PMRAILS_COMPOSE_FILE - Read. Path to the user/project-specific compose file.
+#   _PMRAILS_GEM_HOME - Read. Exported for the shared GEM_HOME mount.
+#   _PMRAILS_VOLUME_NAME - Read. Exported for the external shared GEM_HOME
+#       volume.
 #   _PMRAILS_VAR_DIR - Read. Exported to compose environment.
 #   _PMRAILS_IMAGE_NAME - Read. Exported to compose environment.
-#   _PMRAILS_SCRIPT_DIR - Read. Used to locate the built-in base compose file.
+#   _PMRAILS_SCRIPT_DIR - Read. Used to locate the built-in base compose file
+#       and exported for the PmRails entrypoint mount.
 #   _PMRAILS_COMPOSE_OVERRIDE_FILE - Read. Generated override file path.
 # Arguments:
 #   $@ - Forwarded verbatim to podman-compose.
@@ -350,6 +462,9 @@ pmrails_exec_podman_compose() {
     pmrails_generate_compose_override
     exec env \
         PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" \
+        _PMRAILS_SCRIPT_DIR="${_PMRAILS_SCRIPT_DIR}" \
+        _PMRAILS_GEM_HOME="${_PMRAILS_GEM_HOME}" \
+        _PMRAILS_VOLUME_NAME="${_PMRAILS_VOLUME_NAME}" \
         _PMRAILS_VAR_DIR="${_PMRAILS_VAR_DIR}" \
         _PMRAILS_IMAGE_NAME="${_PMRAILS_IMAGE_NAME}" \
         podman-compose \
@@ -414,8 +529,10 @@ pmrails_stdout_is_tty() {
 # The container is configured to:
 #   - Bind-mount $PWD as /x and use it as the working directory.
 #   - Run ephemerally (--rm) and preserve file ownership (--userns=keep-id).
-#   - Route HOME, XDG_* directories, and BUNDLE_PATH to the isolated
-#     $_PMRAILS_VAR_DIR within /x.
+#   - Route HOME and XDG_* directories to the isolated $_PMRAILS_VAR_DIR
+#     within /x.
+#   - Mount the shared GEM_HOME volume and set GEM_HOME to that container path.
+#   - Use the PmRails entrypoint
 #
 # Notes: $_PMRAILS_PORTS_ARGS is expanded unquoted intentionally; it must already
 #     be correctly tokenized (produced by pmrails_build_ports_args).
@@ -424,8 +541,11 @@ pmrails_stdout_is_tty() {
 #   PMRAILS_PORTS - Read indirectly via pmrails_build_ports_args.
 #   _PMRAILS_PORTS_ARGS - Modified by pmrails_build_ports_args, then read.
 #   PWD - Read. Used as the bind-mount source.
+#   _PMRAILS_GEM_HOME - Read. Container path for the shared GEM_HOME volume.
 #   _PMRAILS_VAR_DIR - Read. Base path for runtime directories.
 #   _PMRAILS_IMAGE_NAME - Read. Image to run.
+#   _PMRAILS_SCRIPT_DIR - Read. Used to locate the PmRails entrypoint.
+#   _PMRAILS_VOLUME_NAME - Read. Shared GEM_HOME volume name.
 # Arguments:
 #   $@ - Forwarded verbatim to podman as the container command.
 # Returns:
@@ -440,13 +560,16 @@ pmrails_exec_podman_run() {
     # shellcheck disable=SC2086
     exec podman run -i ${_tty_flag} --rm --userns=keep-id \
         ${_PMRAILS_PORTS_ARGS} \
+        -v "${_PMRAILS_VOLUME_NAME}:${_PMRAILS_GEM_HOME}" \
+        --env "GEM_HOME=${_PMRAILS_GEM_HOME}" \
+        -v "${_PMRAILS_SCRIPT_DIR}/../share/entrypoint:/pmrails-entrypoint:ro,z" \
+        --entrypoint /pmrails-entrypoint \
         -v "${PWD}:/x" -w /x \
         --env "HOME=/x/${_PMRAILS_VAR_DIR}/home" \
         --env "XDG_CACHE_HOME=/x/${_PMRAILS_VAR_DIR}/cache" \
         --env "XDG_CONFIG_HOME=/x/${_PMRAILS_VAR_DIR}/config" \
         --env "XDG_DATA_HOME=/x/${_PMRAILS_VAR_DIR}/share" \
         --env "XDG_STATE_HOME=/x/${_PMRAILS_VAR_DIR}/state" \
-        --env "BUNDLE_PATH=/x/${_PMRAILS_VAR_DIR}/bundle" \
         "${_PMRAILS_IMAGE_NAME}" "$@"
 }
 
@@ -455,14 +578,26 @@ pmrails_exec_podman_run() {
 # Checks TTY state (adding -t when so) and runs podman without exec,
 # so control returns to the caller after rails new exits.
 #
-# The function's $1 becomes the rails version (consumed by the inline
-# script), and the remaining "$@" are forwarded unchanged to "rails new".
+# The inline script installs the requested Rails version into the shared
+# GEM_HOME, extracts the actual installed Rails version, and runs that exact
+# version via "rails _<version>_ new". The function's $1 becomes the Rails
+# version requirement for "gem install"; the remaining "$@" are forwarded
+# unchanged to "rails new".
+#
+# The container is configured to:
+#   - Bind-mount $PWD as /x and use it as the working directory.
+#   - Run ephemerally (--rm) and preserve file ownership (--userns=keep-id).
+#   - Use a tmpfs HOME because project generation should not persist container
+#     home state into the new project.
+#   - Mount the shared GEM_HOME volume
+#   - Use the PmRails entrypoint
 #
 # Globals:
-#   PMRAILS_RUBY_VERSION_AT_NEW - Read. Selects the upstream ruby image tag.
 #   PWD - Read. Used as the bind-mount source.
-#   _PMRAILS_ADDITIONAL_ARGS - Read. Optional extra podman flags. Word-split
-#       unquoted; values must already be properly tokenized.
+#   _PMRAILS_GEM_HOME - Read. Container path for the shared GEM_HOME volume.
+#   _PMRAILS_IMAGE_NAME - Read. Image to run.
+#   _PMRAILS_SCRIPT_DIR - Read. Used to locate the PmRails entrypoint.
+#   _PMRAILS_VOLUME_NAME - Read. Shared GEM_HOME volume name.
 # Arguments:
 #   $1 - Rails version to install (e.g. "8.0.2").
 #   $@ - Remaining arguments forwarded verbatim to "rails new".
@@ -475,9 +610,66 @@ pmrails_podman_run_rails_new() {
     fi
     # shellcheck disable=SC2086
     podman run -i ${_tty_flag} --rm --userns=keep-id \
+        -v "${_PMRAILS_VOLUME_NAME}:${_PMRAILS_GEM_HOME}" \
+        --env "GEM_HOME=${_PMRAILS_GEM_HOME}" \
+        -v "${_PMRAILS_SCRIPT_DIR}/../share/entrypoint:/pmrails-entrypoint:ro,z" \
+        --entrypoint /pmrails-entrypoint \
         -v "${PWD}:/x" -w /x \
         --tmpfs /home/pmrails --env HOME=/home/pmrails \
-        ${_PMRAILS_ADDITIONAL_ARGS:-} \
-        ruby:"${PMRAILS_RUBY_VERSION_AT_NEW}" \
-        sh -c 'ver="$1"; shift; gem install rails --no-document -v "${ver}" && rails new "$@"' -- "$@"
+        "${_PMRAILS_IMAGE_NAME}" \
+        sh -c '
+set -eu
+ver="$1"
+shift
+gem_out=$(gem install rails -v "${ver}")
+real_ver=$(printf "%s\n" "${gem_out}" | sed -nE "/\.gem([[:space:]]|\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\$).*/\2/p" | tail -n 1)
+if [ -z "${real_ver}" ]; then
+    echo "pmrails: could not extract the installed Rails version from \"gem install rails -v ${ver}\" output" >&2
+    exit 1
+fi
+exec rails "_${real_ver}_" new "$@"
+' -- "$@"
+}
+
+# Execs "podman run" to generate PmRails configuration files in the current
+# project.
+#
+# Checks TTY state (adding -t when so), mounts the local PmRails library into
+# the container, and replaces the current process with podman.
+#
+# The container is configured to:
+#   - Bind-mount $PWD as /x and use it as the working directory.
+#   - Run ephemerally (--rm) and preserve file ownership (--userns=keep-id).
+#   - Use a tmpfs HOME because initialization should not persist container home
+#     state into the project.
+#   - Mount the shared GEM_HOME volume
+#   - Use the PmRails entrypoint
+#
+# Globals:
+#   PWD - Read. Used as the bind-mount source.
+#   _PMRAILS_GEM_HOME - Read. Container path for the shared GEM_HOME volume.
+#   _PMRAILS_IMAGE_NAME - Read. Image to run.
+#   _PMRAILS_SCRIPT_DIR - Read. Used to locate the PmRails library and
+#       entrypoint.
+#   _PMRAILS_VOLUME_NAME - Read. Shared GEM_HOME volume name.
+# Arguments:
+#   $@ - Forwarded verbatim to "ruby /pmrails/lib/pmrails.rb init".
+# Returns:
+#   Does not return: This function exec's podman, replacing the current
+#       process.
+pmrails_exec_podman_run_init() {
+    _tty_flag=""
+    if pmrails_stdout_is_tty; then
+        _tty_flag="-t"
+    fi
+    exec podman run -i ${_tty_flag} --rm --userns=keep-id \
+        -v "${_PMRAILS_VOLUME_NAME}:${_PMRAILS_GEM_HOME}" \
+        --env "GEM_HOME=${_PMRAILS_GEM_HOME}" \
+        -v "${_PMRAILS_SCRIPT_DIR}/../share/entrypoint:/pmrails-entrypoint:ro,z" \
+        --entrypoint /pmrails-entrypoint \
+        -v "${_PMRAILS_SCRIPT_DIR}/../lib:/pmrails/lib:ro,z" \
+        -v "${PWD}:/x" -w /x \
+        --tmpfs /home/pmrails --env HOME=/home/pmrails \
+        "${_PMRAILS_IMAGE_NAME}" \
+        sh -c 'gem install --conservative thor activesupport && ruby /pmrails/lib/pmrails.rb init "$@"' -- "$@"
 }
