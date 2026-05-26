@@ -31,27 +31,12 @@ namespace :ruby do
       expected_dir = File.expand_path("test/ruby/fixtures/expected", __dir__)
       original_dir = File.expand_path("test/ruby/fixtures/original", __dir__)
       pmrails_init_bin = File.expand_path("bin/pmrails-init", __dir__)
-      pmrails_new_plus_bin = File.expand_path("bin/pmrails-new-plus", __dir__)
 
       Dir.mktmpdir do |tmp_dir|
         puts "Updating Golden Masters in #{tmp_dir} ..."
-        app_name = "workapp"
-        Dir.chdir(tmp_dir) do
-          sh(pmrails_new_plus_bin, "8.1", app_name)
-        end
-        app_pmrails_var = File.expand_path("#{app_name}/.pmrails/var", tmp_dir)
-        app_gemfile = File.expand_path("#{app_name}/Gemfile", tmp_dir)
-        app_gemfile_lock = File.expand_path("#{app_name}/Gemfile.lock", tmp_dir)
         PmRails::SUPPORTED_DATABASES.each do |db|
           puts "  -> Generating for #{db}..."
           work_dir = File.join(tmp_dir, db)
-
-          pmrails_dir = File.join(work_dir, ".pmrails")
-          FileUtils.mkdir_p(pmrails_dir)
-          FileUtils.cp_r(app_pmrails_var, pmrails_dir)
-          FileUtils.cp(app_gemfile, work_dir)
-          FileUtils.cp(app_gemfile_lock, work_dir)
-
           FileUtils.mkdir_p(File.join(work_dir, "test"))
           sys_test_path = File.join(work_dir, "test/application_system_test_case.rb")
           FileUtils.cp(File.join(original_dir, "application_system_test_case.rb"), sys_test_path)

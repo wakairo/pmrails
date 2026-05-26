@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export PATH="${GEM_HOME}/bin:${PATH}"
+exec "$@"

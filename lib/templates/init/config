@@ -3,6 +3,11 @@
 #
 # PMRAILS_RUBY_VERSION="3.4.2"
 
+# Optional suffix appended to PMRAILS_RUBY_VERSION for the Ruby image tag used by pmrails-run and pmrails-compose
+# Must be empty or include its leading separator (e.g., "-bookworm").
+#
+# PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"
+
 # Ruby version tag for the container image used when creating a new Rails app with pmrails-new and pmrails-new-plus
 #
 # PMRAILS_RUBY_VERSION_AT_NEW="3.4.2"

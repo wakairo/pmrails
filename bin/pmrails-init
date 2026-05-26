@@ -6,15 +6,6 @@ _PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${_PMRAILS_SCRIPT_DIR}/../lib/pmrails.sh"
 pmrails_setup
 
-_tty_flag=""
-if pmrails_stdout_is_tty; then
-    _tty_flag="-t"
-fi
-
-exec podman run -i ${_tty_flag} --rm --userns=keep-id \
-    -v "${_PMRAILS_SCRIPT_DIR}/../:/pmrails" \
-    -v "${PWD}:/x" -w /x \
-    --tmpfs /home/pmrails --env HOME=/home/pmrails \
-    --env "BUNDLE_PATH=/x/${_PMRAILS_VAR_DIR}/bundle" \
-    ruby:"${PMRAILS_RUBY_VERSION}" \
-    bundle exec ruby /pmrails/lib/pmrails.rb init "$@"
+pmrails_resolve_image_for_new
+pmrails_ensure_volume
+pmrails_exec_podman_run_init "$@"

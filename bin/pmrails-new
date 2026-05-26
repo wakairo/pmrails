@@ -11,4 +11,6 @@ _PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${_PMRAILS_SCRIPT_DIR}/../lib/pmrails.sh"
 pmrails_setup
 
+pmrails_resolve_image_for_new
+pmrails_ensure_volume
 pmrails_podman_run_rails_new "$@"

@@ -7,5 +7,6 @@ _PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 pmrails_setup
 
 pmrails_ensure_image
+pmrails_ensure_volume
 pmrails_ensure_home_dir
 pmrails_exec_podman_run "$@"

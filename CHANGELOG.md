@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Compose-based development workflow with built-in Selenium support and database presets for SQLite3, PostgreSQL, MySQL, Trilogy, and MariaDB variants.
 - Automatic patching of `test/application_system_test_case.rb` during `pmrails-init` so system tests can run against a remote Selenium container.
 - Layered configuration loading from system, user, project, and project-local config files.
-- Support for `PMRAILS_RUBY_VERSION`, `PMRAILS_RUBY_VERSION_AT_NEW`, `PMRAILS_PORTS`, `PMRAILS_PROJECT_NAME`, `PMRAILS_DOCKERFILE`, and `PMRAILS_COMPOSE_FILE`.
+- Support for `PMRAILS_RUBY_VERSION`, `PMRAILS_RUBY_VERSION_SUFFIX`, `PMRAILS_RUBY_VERSION_AT_NEW`, `PMRAILS_PORTS`, `PMRAILS_PROJECT_NAME`, `PMRAILS_DOCKERFILE`, and `PMRAILS_COMPOSE_FILE`.
 - Support for custom `Dockerfile` and `compose.yaml` to allow building project-specific environments.
+- Introduce shared `GEM_HOME` named volumes so compatible PmRails containers can reuse installed gems, with stores separated by resolved Ruby version and ABI suffix to avoid mixing native extensions across incompatible runtimes.
 - An `aliases` file with shorthand commands for common `pmrails-run` and `pmrails-compose` invocations.
 - Project development tooling and quality gates, including `Rakefile` tasks, RuboCop, SimpleCov, Bats, ShellCheck, shfmt, kcov, `.editorconfig`, `.gitignore`, and `.rubocop.yml`.
 - Automated shell and Ruby test coverage for the new CLI and configuration-generation paths.
