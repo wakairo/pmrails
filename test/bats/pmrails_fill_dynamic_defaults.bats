@@ -19,6 +19,7 @@ setup() {
     assert_equal "$PMRAILS_PROJECT_NAME" "plain_project"
     assert_equal "$PMRAILS_IMAGE_REPO" "ruby"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
+    assert_equal "$PMRAILS_PORTS" "3000:3000"
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
 }
 
@@ -34,6 +35,7 @@ setup() {
     assert_equal "$PMRAILS_PROJECT_NAME" "sample_app_devel"
     assert_equal "$PMRAILS_IMAGE_REPO" "pmrails-sample_app_devel"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
+    assert_equal "$PMRAILS_PORTS" "3000:3000"
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
 }
 
@@ -48,6 +50,7 @@ setup() {
     PMRAILS_IMAGE_REPO="custom/repo"
     PMRAILS_RUBY_VERSION_AT_NEW="7.7.7"
     PMRAILS_COMPOSE_FILE="custom/compose.yaml"
+    PMRAILS_PORTS="5000:5001"
     pmrails_fill_dynamic_defaults
 
     assert_equal "$PMRAILS_RUBY_VERSION" "8.8.8"
@@ -55,6 +58,7 @@ setup() {
     assert_equal "$PMRAILS_PROJECT_NAME" "explicit_project"
     assert_equal "$PMRAILS_IMAGE_REPO" "custom/repo"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "7.7.7"
+    assert_equal "$PMRAILS_PORTS" "5000:5001"
     assert_equal "$PMRAILS_COMPOSE_FILE" "custom/compose.yaml"
 
     rm -f .ruby-version .pmrails/Dockerfile
@@ -66,6 +70,7 @@ setup() {
     assert_equal "$PMRAILS_PROJECT_NAME" "explicit_project"
     assert_equal "$PMRAILS_IMAGE_REPO" "custom/repo"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "7.7.7"
+    assert_equal "$PMRAILS_PORTS" "5000:5001"
     assert_equal "$PMRAILS_COMPOSE_FILE" "custom/compose.yaml"
 }
 

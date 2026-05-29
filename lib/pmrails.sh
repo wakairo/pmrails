@@ -106,6 +106,85 @@ pmrails_restore_env() {
     unset _PMRAILS_ENV_SNAPSHOT
 }
 
+# Returns success when a PmRails configuration value is ":AUTO".
+#
+# Values beginning with ":" other than ":AUTO" are reserved. If such a value
+# is passed, this function immediately aborts the script with an error.
+#
+# Arguments:
+#   $1 - Configuration value to classify.
+# Outputs:
+#   Writes an error message to STDERR for unsupported reserved values.
+# Returns:
+#   0: The value is ":AUTO".
+#   1: The value is a normal literal configuration value.
+#   Does not return (exits with status 3):
+#     If the value starts with ":" but is not a supported command.
+pmrails_is_auto_config_value() {
+    case "$1" in
+    ':AUTO')
+        return 0
+        ;;
+    :*)
+        printf 'error: unsupported reserved PMRAILS configuration value: "%s"\n' "$1" >&2
+        exit 3
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+# Unsets PmRails runtime configuration variables that are set to ":AUTO".
+#
+# Variables set to the ":AUTO" command-like value are unset so that subsequent
+# dynamic-default resolution can populate them. Other values beginning with ":"
+# are reserved and rejected early.
+#
+# PMRAILS_SYS_CONF is intentionally excluded because it controls where
+# configuration is loaded from, rather than being part of the runtime
+# configuration itself.
+#
+# Globals:
+#   PMRAILS_* - Read/Modified for known PmRails configuration variables.
+# Returns:
+#   0: On success.
+#   Does not return (exits with status 3):
+#     If any known configuration variable contains an unsupported reserved
+#     value.
+pmrails_unset_auto_config_variables() {
+    # Unset values are passed to the classifier as empty strings. Empty strings
+    # are normal literal values, not reserved commands, so this preserves the
+    # distinction between unset, empty, and ":AUTO" without extra set checks.
+    if pmrails_is_auto_config_value "${PMRAILS_RUBY_VERSION:-}"; then
+        unset PMRAILS_RUBY_VERSION
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_RUBY_VERSION_SUFFIX:-}"; then
+        unset PMRAILS_RUBY_VERSION_SUFFIX
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_RUBY_VERSION_AT_NEW:-}"; then
+        unset PMRAILS_RUBY_VERSION_AT_NEW
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_PORTS:-}"; then
+        unset PMRAILS_PORTS
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_PROJECT_NAME:-}"; then
+        unset PMRAILS_PROJECT_NAME
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_DOCKERFILE:-}"; then
+        unset PMRAILS_DOCKERFILE
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_COMPOSE_FILE:-}"; then
+        unset PMRAILS_COMPOSE_FILE
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_GEM_HOME_ABI:-}"; then
+        unset PMRAILS_GEM_HOME_ABI
+    fi
+    if pmrails_is_auto_config_value "${PMRAILS_IMAGE_REPO:-}"; then
+        unset PMRAILS_IMAGE_REPO
+    fi
+}
+
 # Sources PmRails configuration files from multiple scopes.
 #
 # Files are sourced in the following order, allowing later files to
@@ -153,24 +232,9 @@ pmrails_load_config_files() {
         _pmrails_config_path
 }
 
-# Sets hardcoded default values for PMRAILS_* configuration variables.
-#
-# Always overwrites existing values unconditionally. Intended to be called
-# before pmrails_load_config_files so that config files can override these
-# defaults, and before pmrails_restore_env so that user-set environment
-# variables take final precedence.
-#
-# Globals:
-#   PMRAILS_PORTS - Written.
-# Returns:
-#   0: Always succeeds.
-pmrails_load_static_defaults() {
-    PMRAILS_PORTS='3000:3000'
-}
-
 # Fills in PMRAILS_* variables that are not yet set, using runtime-derived defaults.
 #
-# Each variable is set only if it is currently unset or empty, ensuring idempotency.
+# Most variables are set if unset or empty, ensuring idempotency.
 # Intended to be called after other variable setting functions so that user-set
 # values and config file values take precedence over these defaults.
 #
@@ -182,6 +246,7 @@ pmrails_load_static_defaults() {
 #   PMRAILS_IMAGE_REPO - Read/Modified. Resolved by pmrails_resolve_image_repo.
 #   PMRAILS_RUBY_VERSION_SUFFIX - Read/Modified.
 #   PMRAILS_RUBY_VERSION_AT_NEW - Read/Modified.
+#   PMRAILS_PORTS - Read/Modified.
 #   PMRAILS_COMPOSE_FILE - Read/Modified.
 #   PWD - Read. Must be set. Used to derive PMRAILS_PROJECT_NAME.
 # Returns:
@@ -206,6 +271,9 @@ pmrails_fill_dynamic_defaults() {
     pmrails_resolve_image_repo
     PMRAILS_RUBY_VERSION_SUFFIX=${PMRAILS_RUBY_VERSION_SUFFIX:-}
     PMRAILS_RUBY_VERSION_AT_NEW=${PMRAILS_RUBY_VERSION_AT_NEW:-'latest'}
+    if [ -z "${PMRAILS_PORTS+x}" ]; then
+        PMRAILS_PORTS='3000:3000'
+    fi
     PMRAILS_COMPOSE_FILE=${PMRAILS_COMPOSE_FILE:-'.pmrails/compose.yaml'}
 }
 
@@ -218,8 +286,11 @@ pmrails_fill_dynamic_defaults() {
 # Variables are populated with the following precedence (highest first):
 #   1. Caller-exported PMRAILS_* environment variables.
 #   2. Configuration files sourced by pmrails_load_config_files.
-#   3. Static defaults from pmrails_load_static_defaults.
-#   4. Runtime-derived defaults from pmrails_fill_dynamic_defaults.
+#   3. Runtime-derived defaults from pmrails_fill_dynamic_defaults.
+#
+# In the final effective runtime configuration, ":AUTO" has the same effect as
+# leaving the variable undefined. Any other runtime configuration value
+# beginning with ":" is reserved and rejected before defaults are resolved.
 #
 # On success, entrypoint scripts can rely on at least the following variables
 # being ready for use:
@@ -242,9 +313,9 @@ pmrails_fill_dynamic_defaults() {
 #       fails.
 pmrails_setup() {
     pmrails_snapshot_env
-    pmrails_load_static_defaults
     pmrails_load_config_files
     pmrails_restore_env
+    pmrails_unset_auto_config_variables
     pmrails_fill_dynamic_defaults
 }
 

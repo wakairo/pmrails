@@ -31,7 +31,7 @@ setup() {
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
 }
 
-@test "caller-exported PMRAILS variables override config and static defaults even when exported empty" {
+@test "caller-exported PMRAILS variables override config and defaults even when exported empty" {
     enter_test_project_dir "env-wins"
     write_lines_to "$XDG_CONFIG_HOME/pmrails/config" \
         'PMRAILS_PORTS="9999:9999"' \
@@ -67,4 +67,35 @@ setup() {
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
     assert_equal "$PMRAILS_PORTS" "3000:3000"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
+}
+
+@test ":AUTO in project config resets earlier config values to automatic defaults" {
+    enter_test_project_dir "auto-config"
+    write_lines_to ".ruby-version" "ruby-3.3.7"
+    write_lines_to "$XDG_CONFIG_HOME/pmrails/config" \
+        'PMRAILS_RUBY_VERSION="9.9.9"' \
+        'PMRAILS_PORTS="9999:9999"'
+    write_lines_to ".pmrails/config" \
+        'PMRAILS_RUBY_VERSION=":AUTO"' \
+        'PMRAILS_PORTS=":AUTO"'
+
+    pmrails_setup
+
+    assert_equal "$PMRAILS_RUBY_VERSION" "3.3.7"
+    assert_equal "$PMRAILS_PORTS" "3000:3000"
+}
+
+@test ":AUTO in caller-exported variables resets config values to automatic defaults" {
+    enter_test_project_dir "auto-env"
+    write_lines_to ".ruby-version" "ruby-3.3.7"
+    write_lines_to ".pmrails/config" \
+        'PMRAILS_RUBY_VERSION="9.9.9"' \
+        'PMRAILS_PORTS="9999:9999"'
+    export PMRAILS_RUBY_VERSION=":AUTO"
+    export PMRAILS_PORTS=":AUTO"
+
+    pmrails_setup
+
+    assert_equal "$PMRAILS_RUBY_VERSION" "3.3.7"
+    assert_equal "$PMRAILS_PORTS" "3000:3000"
 }

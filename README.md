@@ -375,6 +375,16 @@ PMRAILS_RUBY_VERSION_AT_NEW="3.4.8"
 
 The variables below can be set in a configuration file, exported in your shell, or passed inline before a `pmrails-*` command (for example: `PMRAILS_PORTS=8080:3000 pmrails-run bin/rails server -b 0.0.0.0`).
 
+#### `:AUTO`
+
+Set a configuration variable to `:AUTO` to make PmRails treat it as unset, so the usual automatic resolution or default value applies. This is useful when a broader config sets a fixed value but one project should return to automatic behavior.
+
+An empty string is different: `FOO=""` explicitly sets an empty string, while `FOO=":AUTO"` makes PmRails treat the setting as unset.
+
+`PMRAILS_SYS_CONF` is the exception and does not support `:AUTO`, because it controls where configuration is loaded from.
+
+Values beginning with `:` are reserved; currently only `:AUTO` is valid, and other reserved values cause an error.
+
 #### `PMRAILS_RUBY_VERSION`
 
 Selects the Ruby version used by `pmrails-run` and `pmrails-compose`. When unset, PmRails reads the version from `.ruby-version` in the project root; see [Ruby Version Resolution](#ruby-version-resolution) for the precise rules.
