@@ -17,6 +17,7 @@
 # PMRAILS_PORTS="3000:3000 5000"
 
 # Project name passed to podman-compose and used as part of the custom image repository name
+# Use lowercase letters, digits, underscores, and hyphens for Compose compatibility.
 #
 # PMRAILS_PROJECT_NAME="my_app"
 
