@@ -133,10 +133,16 @@ These modes share the same building blocks and can be combined freely:
 - A multi-container setup (`.pmrails/compose.yaml`) can be used with or without a custom image.
 - `pmrails-init` generates both `Dockerfile` and `compose.yaml`, but you can keep only what you need.
 
+### Rails Version Requirement for New Apps
+
+Both `pmrails-new` and `pmrails-new-plus` install Rails from RubyGems and then run `rails new`.
+A plain numeric version such as `8.1` expands to `'~> 8.1.0'`, meaning the latest compatible Rails 8.1.x release is installed to generate the application.
+To opt out, pass an explicit RubyGems requirement, such as `'= 8.1.0'` to pin an exact version.
+
 ### 1. Create a New Rails Application Only
 
 Use this mode when you only want to generate the application files and intend to run the application in another environment.
-`pmrails-new` behaves the same as `rails new`.
+`pmrails-new` is a thin wrapper around `rails new`; it behaves almost the same as `rails new`.
 
 Navigate to a temporary directory. For example:
 
@@ -150,6 +156,8 @@ Create a new Rails application, specifying the Rails version and any `rails new`
 ```sh
 pmrails-new 8.1 new_app --database=postgresql
 ```
+
+> **Note:** Numeric versions like `8.1` expand to `'~> 8.1.0'`. To pin the exact version, use `'= 8.1.0'` (see [details](#rails-version-requirement-for-new-apps)).
 
 ### 2. Create and Develop with a Single Rails Container
 
@@ -172,6 +180,8 @@ Create a new Rails application with `pmrails-new-plus`:
 ```sh
 pmrails-new-plus 8.1 sample_app
 ```
+
+> **Note:** Numeric versions like `8.1` expand to `'~> 8.1.0'`. To pin the exact version, use `'= 8.1.0'` (see [details](#rails-version-requirement-for-new-apps)).
 
 When using this command, any `rails new` options can be specified after the application name.
 
@@ -236,6 +246,8 @@ mkdir -p ~/tmp
 cd ~/tmp
 pmrails-new-plus 8.1 sample_app --database=postgresql
 ```
+
+> **Note:** Numeric versions like `8.1` expand to `'~> 8.1.0'`. To pin the exact version, use `'= 8.1.0'` (see [details](#rails-version-requirement-for-new-apps)).
 
 Then move into the new application directory and generate the PmRails setting files:
 

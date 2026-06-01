@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `pmrails-new` and `pmrails-new-plus` now use the shared `lib/pmrails.sh` runtime setup instead of carrying their own inline Podman logic.
 - `pmrails-new-plus` now adds both `/.pmrails/var/` and `/.pmrails/config.local` to the generated app's `.gitignore`.
+- Plain numeric Rails versions passed to `pmrails-new` and `pmrails-new-plus` are expanded to pessimistic RubyGems requirements, so `8.1` installs the latest compatible `8.1.x` release.
 - Legacy entrypoints now delegate to the new command surface instead of duplicating container-launch logic.
 - CLI usage errors now consistently begin with `Usage:`.
 

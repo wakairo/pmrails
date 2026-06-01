@@ -134,6 +134,7 @@ setup() {
     _PMRAILS_IMAGE_NAME="pmrails-sample_app:3.3.7"
     _PMRAILS_VOLUME_NAME="pmrails-gem_home-4.0.3"
     _PMRAILS_SCRIPT_DIR="/opt/pmrails/bin"
+    PMRAILS_TEST_RAILS_NEW_SCRIPT=$'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    printf "pmrails: could not extract the installed Rails version from \\"gem install rails -v %s\\" output\\n" "${ver}" >&2\n    exit 1\nfi\nprintf "pmrails: using Rails version %s for rails new\\n" "${real_ver}"\nexec rails "_${real_ver}_" new "$@"\n'
 }
 
 @test "assert_array_equals reports full expected and actual arrays on mismatch" {
@@ -424,7 +425,7 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_podman_run_rails_new preserves rails new arguments without TTY" {
+@test "pmrails_podman_run_rails_new expands the Rails requirement and preserves rails new arguments without TTY" {
     local expected_call=(
         run
         -i
@@ -449,9 +450,9 @@ setup() {
         ruby:3.4.1
         sh
         -c
-        $'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    echo "pmrails: could not extract the installed Rails version from \\"gem install rails -v ${ver}\\" output" >&2\n    exit 1\nfi\nexec rails "_${real_ver}_" new "$@"\n'
+        "$PMRAILS_TEST_RAILS_NEW_SCRIPT"
         --
-        8.0.2
+        "~> 8.0.2.0"
         blog
         --skip-bundle
         --css
@@ -467,7 +468,17 @@ setup() {
     assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_podman_run_rails_new adds a TTY flag when STDOUT is a TTY" {
+@test "pmrails_podman_run_rails_new reports the expanded Rails requirement" {
+    install_podman_stub
+
+    _PMRAILS_IMAGE_NAME="ruby:3.4.1"
+    run pmrails_podman_run_rails_new 8.1 blog
+
+    assert_success
+    assert_output --partial 'pmrails: using Rails version requirement "~> 8.1.0" for "8.1"'
+}
+
+@test "pmrails_podman_run_rails_new adds a TTY flag and preserves explicit Rails requirements" {
     local expected_call=(
         run
         -i
@@ -493,9 +504,9 @@ setup() {
         ruby:3.4.1
         sh
         -c
-        $'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    echo "pmrails: could not extract the installed Rails version from \\"gem install rails -v ${ver}\\" output" >&2\n    exit 1\nfi\nexec rails "_${real_ver}_" new "$@"\n'
+        "$PMRAILS_TEST_RAILS_NEW_SCRIPT"
         --
-        8.1.1
+        "= 8.1"
         store
     )
 
@@ -503,7 +514,7 @@ setup() {
     install_stdout_is_tty_stub
 
     _PMRAILS_IMAGE_NAME="ruby:3.4.1"
-    pmrails_podman_run_rails_new 8.1.1 store
+    pmrails_podman_run_rails_new '= 8.1' store
 
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
     assert_recorded_call_equals 1 expected_call

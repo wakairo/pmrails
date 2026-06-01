@@ -648,16 +648,42 @@ pmrails_exec_podman_run() {
         "${_PMRAILS_IMAGE_NAME}" "$@"
 }
 
+# Expands a plain numeric Rails version into a pessimistic RubyGems requirement.
+#
+# PmRails treats a version made only of digits and "." separators as shorthand
+# for "use the latest compatible release in this version line". Explicit
+# RubyGems requirements, prerelease-like versions, and malformed dotted values
+# are preserved verbatim.
+#
+# Arguments:
+#   $1 - Rails version or RubyGems requirement.
+# Outputs:
+#   Writes the expanded or preserved requirement to STDOUT.
+# Returns:
+#   0: Always succeeds.
+pmrails_expand_rails_version_requirement() {
+    _pmrails_rails_version_requirement="$1"
+
+    if printf '%s\n' "${_pmrails_rails_version_requirement}" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+        printf '~> %s.0\n' "${_pmrails_rails_version_requirement}"
+    else
+        printf '%s\n' "${_pmrails_rails_version_requirement}"
+    fi
+
+    unset _pmrails_rails_version_requirement
+}
+
 # Runs "rails new" in a one-shot container to generate a new Rails project.
 #
 # Checks TTY state (adding -t when so) and runs podman without exec,
 # so control returns to the caller after rails new exits.
 #
-# The inline script installs the requested Rails version into the shared
-# GEM_HOME, extracts the actual installed Rails version, and runs that exact
-# version via "rails _<version>_ new". The function's $1 becomes the Rails
-# version requirement for "gem install"; the remaining "$@" are forwarded
-# unchanged to "rails new".
+# The function expands plain numeric Rails versions into pessimistic RubyGems
+# requirements before invoking the container. The inline script installs that
+# requirement into the shared GEM_HOME, extracts the actual installed Rails
+# version, reports it, and runs that exact version via "rails _<version>_ new".
+# The function's $1 becomes the Rails version requirement for "gem install"; the
+# remaining "$@" are forwarded unchanged to "rails new".
 #
 # The container is configured to:
 #   - Bind-mount $PWD as /x and use it as the working directory.
@@ -679,6 +705,15 @@ pmrails_exec_podman_run() {
 # Returns:
 #   The exit status of "podman run".
 pmrails_podman_run_rails_new() {
+    _pmrails_rails_version="$1"
+    shift
+    _pmrails_rails_version_requirement=$(pmrails_expand_rails_version_requirement "${_pmrails_rails_version}")
+    if [ "${_pmrails_rails_version_requirement}" != "${_pmrails_rails_version}" ]; then
+        printf 'pmrails: using Rails version requirement "%s" for "%s"\n' "${_pmrails_rails_version_requirement}" "${_pmrails_rails_version}"
+    fi
+    set -- "${_pmrails_rails_version_requirement}" "$@"
+    unset _pmrails_rails_version _pmrails_rails_version_requirement
+
     _tty_flag=""
     if pmrails_stdout_is_tty; then
         _tty_flag="-t"
@@ -699,9 +734,10 @@ shift
 gem_out=$(gem install rails -v "${ver}")
 real_ver=$(printf "%s\n" "${gem_out}" | sed -nE "/\.gem([[:space:]]|\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\$).*/\2/p" | tail -n 1)
 if [ -z "${real_ver}" ]; then
-    echo "pmrails: could not extract the installed Rails version from \"gem install rails -v ${ver}\" output" >&2
+    printf "pmrails: could not extract the installed Rails version from \"gem install rails -v %s\" output\n" "${ver}" >&2
     exit 1
 fi
+printf "pmrails: using Rails version %s for rails new\n" "${real_ver}"
 exec rails "_${real_ver}_" new "$@"
 ' -- "$@"
 }
