@@ -263,7 +263,11 @@ pmrails_fill_dynamic_defaults() {
         printf '%s\n' 'error: PWD can not be unset nor empty' >&2
         exit 2
     fi
-    PMRAILS_PROJECT_NAME=${PMRAILS_PROJECT_NAME:-"$(basename "${PWD}" | sed 's/[^a-zA-Z0-9]/_/g; s/_\{2,\}/_/g; s/^_//' | cut -c 1-16 | sed 's/[^a-zA-Z0-9]*$//')"}
+    # shellcheck disable=SC2018,SC2019
+    PMRAILS_PROJECT_NAME=${PMRAILS_PROJECT_NAME:-"$(
+        export LC_ALL=C
+        basename "${PWD}" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]/_/g; s/_\{2,\}/_/g; s/^_//' | cut -c 1-16 | sed 's/_*$//'
+    )"}
     if [ -z "${PMRAILS_PROJECT_NAME}" ]; then
         printf '%s\n' 'error: PMRAILS_PROJECT_NAME can not be empty' >&2
         exit 2

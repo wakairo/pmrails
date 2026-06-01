@@ -440,7 +440,7 @@ PMRAILS_PORTS="3000:3000 1234-1236:1234-1236" pmrails-run bin/rails server -b 0.
 
 #### `PMRAILS_PROJECT_NAME`
 
-Overrides the project name. PmRails uses it as the `podman-compose` project name (`-p` flag) and as part of the project-specific image repository name. When unset, PmRails derives it from the basename of the current directory (sanitized to alphanumerics and underscores, truncated to 16 characters).
+Overrides the project name. PmRails uses it as the `podman-compose` project name (`-p` flag) and as part of the project-specific image repository name. When unset, PmRails derives it from the basename of the current directory (lowercased, sanitized to lowercase alphanumerics and underscores, truncated to 16 characters).
 
 ```sh
 PMRAILS_PROJECT_NAME="sample_app"

@@ -84,6 +84,14 @@ setup() {
     assert_output --partial 'error'
 }
 
+@test "lowercases PMRAILS_PROJECT_NAME" {
+    enter_test_project_dir "Sample-App_DEV"
+
+    pmrails_fill_dynamic_defaults
+
+    assert_equal "$PMRAILS_PROJECT_NAME" "sample_app_dev"
+}
+
 @test "sanitizes PMRAILS_PROJECT_NAME by stripping trailing non-alphanumeric characters" {
     enter_test_project_dir "._0_-.2345678901234-------"
 
