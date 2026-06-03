@@ -27,10 +27,13 @@ PmRailsは以下のコマンドを提供します。
   **使用方法**: `pmrails-init [OPTIONS]`
 
 - **`pmrails-run`**: プロジェクトローカルなランタイムディレクトリを持つ単一のRailsコンテナ内で任意のコマンドを実行します。\
-  **使用方法**: `pmrails-run COMMAND [OPTIONS]`
+  **使用方法**: `pmrails-run COMMAND [ARG...]`
 
 - **`pmrails-compose`**: `podman-compose`のラッパーとして、プロジェクトのCompose環境を操作します。\
   **使用方法**: `pmrails-compose [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]`
+
+- **`pmrails-cmpexe`**: プロジェクトのCompose環境のRailsコンテナ内で任意のコマンドを実行します。\
+  **使用方法**: `pmrails-cmpexe COMMAND [ARG...]`
 
 ### 非推奨コマンド
 
@@ -90,10 +93,10 @@ exec $SHELL -l
 
 PmRailsには、よく使われるコマンドを短く書くためのエイリアスを定義した`aliases`ファイルが同梱されています。
 
-これを読み込むと、以下のような長いコマンドを
+これを読み込むと、以下のようなコマンドを
 
 ```sh
-pmrails-compose exec rails-app bin/rails console
+pmrails-cmpexe bin/rails console
 ```
 
 次のように短く書けます。
@@ -114,8 +117,7 @@ exec $SHELL -l
 ```sh
 # pmrails aliases
 alias pmrails-rrails='pmrails-run bin/rails'
-alias pmrails-crails='pmrails-compose exec rails-app bin/rails'
-alias pmrails-cmpexe='pmrails-compose exec rails-app'
+alias pmrails-crails='pmrails-cmpexe bin/rails'
 ```
 
 
@@ -237,7 +239,7 @@ gemは、`pmrails-run`と同じように、PmRailsが管理するgemストアを
 このモードでは、Compose環境を「使い捨てのコンテナ」ではなく、「長く使い続けるワークスペース」と考えてください。
 通常は一度立ち上げ（up）、稼働中に多くの`exec`コマンドを実行し、作業を中断したいときには停止（stop）し、再開するときには起動（start）し、最終的に不要になったら破棄（down）します。
 
-このモデルには重要なルールが1つあります。Composeを使って作業している間は、Rails関連コマンドを`pmrails-run`ではなく、`pmrails-compose exec rails-app ...`を通じて実行してください。
+このモデルには重要なルールが1つあります。Composeを使って作業している間は、Rails関連コマンドを`pmrails-run`ではなく、`pmrails-cmpexe ...`を通じて実行してください。
 `pmrails-run`は隔離されたコンテナで実行するため、Composeによって管理されているデータベースやSelenium、その他のサービスと通信することができません。
 
 #### プロジェクトの準備
@@ -275,7 +277,7 @@ pmrails-init --database=postgresql
 通常の作業の流れは以下のとおりです。
 
 1. `pmrails-compose up -d`で環境を立ち上げます。
-2. 環境稼働中に`pmrails-compose exec rails-app ...`で作業を行います。
+2. 環境稼働中に`pmrails-cmpexe ...`で作業を行います。
 3. 中断したいときは`pmrails-compose stop`で環境を一時停止します。
 4. `pmrails-compose start`で環境を再開します。
 5. 作業が完了したら`pmrails-compose down`で環境を破棄します。
@@ -292,16 +294,15 @@ pmrails-compose up -d
 環境が稼働したら、`exec`で作業を行います。
 
 ```sh
-pmrails-compose exec rails-app bundle install
-pmrails-compose exec rails-app bin/rails db:migrate
-pmrails-compose exec rails-app bin/rails console
-pmrails-compose exec rails-app bin/rails server
+pmrails-cmpexe bundle install
+pmrails-cmpexe bin/rails db:migrate
+pmrails-cmpexe bin/rails console
+pmrails-cmpexe bin/rails server
 ```
 
-エイリアスを設定している場合、同じコマンドを以下のように実行できます。
+エイリアスを設定している場合、後ろ3つのコマンドを以下のように実行できます。
 
 ```sh
-pmrails-cmpexe bundle install
 pmrails-crails db:migrate
 pmrails-crails console
 pmrails-crails server
@@ -500,7 +501,7 @@ PMRAILS_PROJECT_NAME="sample_app"
 
 > **重要:** このファイルを変更または置き換える際には、**Railsコンテナのサービス名として必ず`rails-app`を使用してください**。PmRailsの内部コマンドや自動生成される設定は、このサービス名を前提に機能します。
 
-> **注意:** `rails-app`サービスの`volumes`、`environment`、または`entrypoint`の設定に関して、設定値を追加するのではなく、完全に上書きしてしまうと、自動Gem共有が機能しなくなる原因となります。これらをカスタマイズする必要がある場合は、`share/compose.base.yaml`を確認し、PmRails内部で必要となるマッピングを維持するようにしてください。
+> **注意:** `rails-app`サービスの`volumes`または`environment`の設定に関して、設定値を追加するのではなく、完全に上書きしてしまうと、自動Gem共有が機能しなくなる原因となります。これらをカスタマイズする必要がある場合は、`share/compose.base.yaml`を確認し、PmRails内部で必要となるマッピングを維持するようにしてください。
 
 
 ## `.pmrails` — ローカルディレクトリとコンテナ内の環境変数

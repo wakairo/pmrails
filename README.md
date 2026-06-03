@@ -28,10 +28,13 @@ PmRails provides the following commands:
   **Usage**: `pmrails-init [OPTIONS]`
 
 - **`pmrails-run`**: Runs an arbitrary command inside a single Rails container with project-local runtime directories.\
-  **Usage**: `pmrails-run COMMAND [OPTIONS]`
+  **Usage**: `pmrails-run COMMAND [ARG...]`
 
 - **`pmrails-compose`**: Wraps `podman-compose` to operate the project's Compose environment.\
   **Usage**: `pmrails-compose [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]`
+
+- **`pmrails-cmpexe`**: Runs an arbitrary command inside a Rails container in the project's Compose environment.\
+  **Usage**: `pmrails-cmpexe COMMAND [ARG...]`
 
 ### Deprecated Commands
 
@@ -90,10 +93,10 @@ exec $SHELL -l
 ### (Optional) Set Up Aliases
 
 PmRails ships with a small `aliases` file that defines shorthand aliases for the most common invocations.
-Sourcing it lets you replace long commands like:
+Sourcing it lets you replace commands like:
 
 ```sh
-pmrails-compose exec rails-app bin/rails console
+pmrails-cmpexe bin/rails console
 ```
 
 with shorter ones like:
@@ -114,8 +117,7 @@ This adds the following aliases:
 ```sh
 # pmrails aliases
 alias pmrails-rrails='pmrails-run bin/rails'
-alias pmrails-crails='pmrails-compose exec rails-app bin/rails'
-alias pmrails-cmpexe='pmrails-compose exec rails-app'
+alias pmrails-crails='pmrails-cmpexe bin/rails'
 ```
 
 
@@ -234,7 +236,7 @@ Gems use the same managed PmRails gem store as `pmrails-run`, so the host Ruby e
 In this mode, think of the Compose environment as a long-lived workspace, not a one-shot container.
 You usually bring it up once, run many `exec` commands while it is running, stop it when you want to pause, start it again when you return, and finally tear it down when you are done.
 
-One important rule follows from that model: once you are working with Compose, run your day-to-day Rails commands through `pmrails-compose exec rails-app ...`, not `pmrails-run`.
+One important rule follows from that model: once you are working with Compose, run your day-to-day Rails commands through `pmrails-cmpexe ...`, not `pmrails-run`.
 `pmrails-run` starts an isolated container and cannot talk to the database, Selenium, or other services managed by Compose.
 
 #### Prepare the Project
@@ -272,7 +274,7 @@ It also patches `test/application_system_test_case.rb` (when present) so that sy
 The usual workflow is:
 
 1. Bring the environment up with `pmrails-compose up -d`.
-2. Do your work with `pmrails-compose exec rails-app ...` while it is running.
+2. Do your work with `pmrails-cmpexe ...` while it is running.
 3. Pause it with `pmrails-compose stop` when you want to come back later.
 4. Resume it with `pmrails-compose start`.
 5. Remove it with `pmrails-compose down` when you are done.
@@ -289,16 +291,15 @@ If the services do not exist yet, `up` creates them. If they already exist but a
 Once the environment is running, do your work with `exec`:
 
 ```sh
-pmrails-compose exec rails-app bundle install
-pmrails-compose exec rails-app bin/rails db:migrate
-pmrails-compose exec rails-app bin/rails console
-pmrails-compose exec rails-app bin/rails server
+pmrails-cmpexe bundle install
+pmrails-cmpexe bin/rails db:migrate
+pmrails-cmpexe bin/rails console
+pmrails-cmpexe bin/rails server
 ```
 
-If you use the aliases, the same commands become:
+If you use the aliases, the last three commands become:
 
 ```sh
-pmrails-cmpexe bundle install
 pmrails-crails db:migrate
 pmrails-crails console
 pmrails-crails server
@@ -493,7 +494,7 @@ If `.pmrails/compose.yaml` exists, `pmrails-compose` layers it on top of an inte
 
 > **Important:** When modifying or replacing this file, **you must use `rails-app` as the service name for your Rails container**. PmRails internal commands and auto-generated configurations explicitly rely on this exact service name to function correctly.
 
-> **Note:** Completely overriding the `volumes`, `environment`, or `entrypoint` settings of the `rails-app` service (rather than appending to them) will break automatic gem sharing. If you need to customize these, review `share/compose.base.yaml` to ensure you preserve the required PmRails internal mappings.
+> **Note:** Completely overriding the `volumes` or `environment` settings of the `rails-app` service (rather than appending to them) will break automatic gem sharing. If you need to customize these, review `share/compose.base.yaml` to ensure you preserve the required PmRails internal mappings.
 
 ## `.pmrails` — Local Directory and In-Container Environment Variables
 
@@ -537,7 +538,7 @@ Installed gems are reused when both of these match:
 
 Volumes without an ABI suffix, such as `pmrails-gem_home-3.4.8`, use the official Ruby image ABI. If you consistently use official Ruby images, this should work automatically.
 
-When mixing different images or host platforms, the core rule is: **the same ABI suffix must guarantee native-extension compatibility.** 
+When mixing different images or host platforms, the core rule is: **the same ABI suffix must guarantee native-extension compatibility.**
 
 If `PMRAILS_GEM_HOME_ABI` is unset, PmRails automatically derives the ABI suffix from the image tag. It removes a leading numeric Ruby-version prefix and one optional following `-`, while leaving other text in place to avoid merging incompatible gem stores too aggressively. For example, `3.4.8-trixie` becomes `trixie`.
 
