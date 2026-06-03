@@ -1,5 +1,4 @@
 
 # pmrails aliases
 alias pmrails-rrails='pmrails-run bin/rails'
-alias pmrails-crails='pmrails-compose exec rails-app bin/rails'
-alias pmrails-cmpexe='pmrails-compose exec rails-app'
+alias pmrails-crails='pmrails-cmpexe bin/rails'

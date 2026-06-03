@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+if [ "$#" -lt 1 ]; then
+    printf 'Usage: %s\n' 'pmrails-run COMMAND [ARG...]' >&2
+    exit 1
+fi
+
 _PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=./lib/pmrails.sh
 . "${_PMRAILS_SCRIPT_DIR}/../lib/pmrails.sh"

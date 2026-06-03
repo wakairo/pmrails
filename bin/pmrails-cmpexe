@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -lt 1 ]; then
+    printf 'Usage: %s\n' 'pmrails-cmpexe COMMAND [ARG...]' >&2
+    exit 1
+fi
+
+_PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+exec "${_PMRAILS_SCRIPT_DIR}/pmrails-compose" exec rails-app /pmrails-entrypoint "$@"

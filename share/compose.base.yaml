@@ -11,7 +11,6 @@ services:
       - ${PWD}:/x
       - ${_PMRAILS_VOLUME_NAME}:${_PMRAILS_GEM_HOME}
       - ${_PMRAILS_SCRIPT_DIR}/../share/entrypoint:/pmrails-entrypoint:ro,z
-    entrypoint: /pmrails-entrypoint
     working_dir: /x
     environment:
       GEM_HOME: ${_PMRAILS_GEM_HOME}
