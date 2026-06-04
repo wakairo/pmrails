@@ -33,5 +33,6 @@ services:
       - healthcheck.sh
       - "--connect"
       - "--innodb_initialized"
+
 volumes:
   pmrails-mariadb-mysql-data:

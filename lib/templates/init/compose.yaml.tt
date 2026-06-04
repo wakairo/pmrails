@@ -22,9 +22,12 @@ services:
       timeout: 5s
       retries: 5
       test: ["CMD", "/opt/bin/check-grid.sh", "--host", "0.0.0.0", "--port", "4444"]
+<%- if db_yaml = database_service_yaml_fragment -%>
 
-<%= database_service_yaml_fragment -%>
+<%= db_yaml -%>
+<%- end -%>
 <%- if !compose_volume_names.empty? -%>
+
 volumes:
 <%- compose_volume_names.each do |vname| -%>
   <%= vname %>:
