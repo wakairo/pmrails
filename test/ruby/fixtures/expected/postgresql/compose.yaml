@@ -35,5 +35,6 @@ services:
       - "-U"
       - postgres
     shm_size: 128mb
+
 volumes:
   pmrails-postgresql-data:
