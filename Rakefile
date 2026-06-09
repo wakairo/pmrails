@@ -4,13 +4,46 @@ require "open3"
 require "rake/testtask"
 require "rubocop/rake_task"
 
+RAKE_DIR = ".rake"
+RUBY_RUBOCOP_STAMP = "#{RAKE_DIR}/ruby_rubocop.stamp"
+RUBY_RUBOCOP_TARGETS = %w[.simplecov Rakefile lib/*.rb test/ruby/*.rb]
+
+directory RAKE_DIR
+
+# Returns target files that require processing since the stamp was last updated.
+# A forced build, missing stamp, or newer invalidating file returns all targets.
+def files_needing_processing(stamp, target_files, invalidating_files)
+  return target_files if Rake.application.options.build_all || !File.exist?(stamp)
+
+  stamp_mtime = File.mtime(stamp)
+  return target_files if invalidating_files.any? { |file| File.mtime(file) > stamp_mtime }
+
+  target_files.select { |file| File.mtime(file) > stamp_mtime }
+end
+
 namespace :ruby do
   Rake::TestTask.new(:test) do |t|
     t.pattern = "test/**/*_test.rb"
   end
 
   desc "Run RuboCop to lint Ruby code"
-  RuboCop::RakeTask.new(:rubocop)
+  RuboCop::RakeTask.new(:rubocop) do |t|
+    t.patterns = RUBY_RUBOCOP_TARGETS
+  end
+  Rake::Task[:rubocop].enhance([ RAKE_DIR ]) do
+    touch RUBY_RUBOCOP_STAMP
+  end
+  class << Rake::Task[:rubocop]
+    def needed?
+      not_needed =
+        files_needing_processing(
+          RUBY_RUBOCOP_STAMP,
+          FileList[*RUBY_RUBOCOP_TARGETS],
+          %w[Rakefile .rubocop.yml]
+        ).empty?
+      not not_needed
+    end
+  end
 
   desc "Run all Ruby checks for CI (RuboCop -> Test)"
   task ci: %i[rubocop test]
@@ -68,18 +101,30 @@ SHELL_TOOL_INSTALL_HINTS = {
   "shfmt" => "sudo apt install shfmt",
   "kcov" => "See https://github.com/SimonKagstrom/kcov"
 }.freeze
-SHELL_PRODUCTION_FILE_GLOBS = %w[
-  bin/pmrails-*
-  lib/*.sh
+SHELL_LIB_FILE_GLOB = "lib/*.sh"
+SHELL_LIBS = FileList[SHELL_LIB_FILE_GLOB]
+SHELL_PRODUCTION_FILE_GLOBS = [
+  "bin/pmrails-*",
+  "share/entrypoint",
+  SHELL_LIB_FILE_GLOB
 ].freeze
-SHELL_TEST_FILE_GLOBS = %w[
-  test/bats/*.bash
-  test/bats/*.bats
+SHELL_TEST_BASH_GLOB = "test/bats/*.bash"
+SHELL_TEST_BATS_GLOB = "test/bats/*.bats"
+SHELL_TEST_FILE_GLOBS = [
+  SHELL_TEST_BASH_GLOB,
+  SHELL_TEST_BATS_GLOB
 ].freeze
 SHELL_SOURCE_FILE_GLOBS = (SHELL_PRODUCTION_FILE_GLOBS + SHELL_TEST_FILE_GLOBS).freeze
-SHELL_TEST_DIR = "test/bats"
+SHELL_TEST_HELPER_FILES = FileList[SHELL_TEST_BASH_GLOB]
+SHELL_TEST_FILES = FileList[SHELL_TEST_BATS_GLOB]
+SHELL_TEST_STAMP = "#{RAKE_DIR}/shell_test.stamp"
+SHELL_LINT_STAMP = "#{RAKE_DIR}/shell_lint.stamp"
 SHELL_COVERAGE_DIR = "coverage/shell"
 
+# Returns tracked and non-ignored untracked shell source files.
+#
+# Using git ls-files excludes ignored files such as editor backups
+# (for example, bin/pmrails-compose~) from linting and formatting.
 def shell_source_files
   @shell_source_files ||= begin
     ensure_command!("git")
@@ -94,12 +139,16 @@ def shell_source_files
     unless status.success?
       abort("[Error] `git ls-files` failed (exit #{status.exitstatus}).\n#{err}")
     end
-    files = out.split("\x00").reject(&:empty?)
+    files = out.split("\x00").select { |file| File.file?(file) }
     abort("[Error] No shell source files matched (#{SHELL_SOURCE_FILE_GLOBS.join(", ")}).") if files.empty?
     files
   end
 end
 
+# Validates an external task dependency before it is invoked.
+#
+# Only executable files on PATH qualify; shell aliases and functions do not.
+# Missing tools produce a consistent error with an installation hint when known.
 def ensure_command!(cmd)
   found = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? do |dir|
     path = File.join(dir, cmd)
@@ -118,8 +167,16 @@ namespace :shell do
   task ci: %i[lint format test]
 
   desc "Run shell script tests with bats"
-  task :test do
-    sh ensure_command!("bats"), SHELL_TEST_DIR
+  task test: [ RAKE_DIR ] do
+    bats_files = files_needing_processing(
+      SHELL_TEST_STAMP,
+      SHELL_TEST_FILES,
+      %w[Rakefile] + SHELL_LIBS + SHELL_TEST_HELPER_FILES
+    )
+    unless bats_files.empty?
+      sh ensure_command!("bats"), *bats_files
+      touch SHELL_TEST_STAMP
+    end
   end
 
   desc "Measure shell script test coverage with kcov (output: coverage/shell/)"
@@ -129,12 +186,20 @@ namespace :shell do
     rm_rf SHELL_COVERAGE_DIR
     mkdir_p SHELL_COVERAGE_DIR
     include_dirs = SHELL_PRODUCTION_FILE_GLOBS.map { |g| File.expand_path(File.dirname(g)) }.uniq
-    sh kcov_cmd, "--include-path=#{include_dirs.join(",")}", SHELL_COVERAGE_DIR, bats_cmd, SHELL_TEST_DIR
+    sh kcov_cmd, "--include-path=#{include_dirs.join(",")}", SHELL_COVERAGE_DIR, bats_cmd, *SHELL_TEST_FILES
   end
 
   desc "Lint shell scripts with shellcheck"
-  task :lint do
-    sh ensure_command!("shellcheck"), *shell_source_files
+  task lint: [ RAKE_DIR ] do
+    files = files_needing_processing(
+      SHELL_LINT_STAMP,
+      shell_source_files,
+      %w[Rakefile]
+    )
+    unless files.empty?
+      sh ensure_command!("shellcheck"), *files
+      touch SHELL_LINT_STAMP
+    end
   end
 
   desc "Check shell script formatting with shfmt (use shell:format:fix to apply)"
