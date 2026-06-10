@@ -94,11 +94,12 @@ namespace :ruby do
   end
 end
 
-SHELL_TOOL_INSTALL_HINTS = {
+TOOL_INSTALL_HINTS = {
   "git" => "sudo apt install git",
   "bats" => "sudo apt install bats",
   "shellcheck" => "sudo apt install shellcheck",
   "shfmt" => "sudo apt install shfmt",
+  "editorconfig-checker" => 'sudo apt install -y golang && export PATH="$HOME/go/bin:$PATH" && go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@latest',
   "kcov" => "See https://github.com/SimonKagstrom/kcov"
 }.freeze
 SHELL_LIB_FILE_GLOB = "lib/*.sh"
@@ -157,9 +158,18 @@ def ensure_command!(cmd)
   return cmd if found
 
   msg = "[Error] Required command `#{cmd}` is not installed."
-  hint = SHELL_TOOL_INSTALL_HINTS[cmd]
+  hint = TOOL_INSTALL_HINTS[cmd]
   msg += "\nInstall hint: #{hint}" if hint
   abort(msg)
+end
+
+namespace :text do
+  desc "Check text files against EditorConfig and Git whitespace rules"
+  task :check do
+    sh ensure_command!("editorconfig-checker")
+    ensure_command!("git")
+    sh 'git diff --check "$(git hash-object -t tree /dev/null)"'
+  end
 end
 
 namespace :shell do
@@ -216,5 +226,5 @@ namespace :shell do
 end
 
 task test: %i[ruby:test shell:test]
-task ci: %i[ruby:ci shell:ci]
+task ci: %i[text:check ruby:ci shell:ci]
 task default: :ci
