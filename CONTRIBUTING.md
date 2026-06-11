@@ -33,6 +33,16 @@ RuboCop, ShellCheck, and Bats use incremental checks and are skipped when their 
 
 See `rake --tasks` for more details.
 
+### Optional Pre-Commit Hook
+
+Regular contributors can optionally install a pre-commit hook that runs `rake ci` before each commit:
+
+```sh
+rake dev:hooks:install
+```
+
+The installer leaves an existing pre-commit hook or custom `core.hooksPath` untouched so you can integrate `rake ci` into it manually. To intentionally commit without running the installed hook, use `git commit --no-verify`.
+
 ### Updating Golden Master Fixtures
 
 Tests for the `pmrails-init` command rely on the **Golden Master (Snapshot) pattern**. They compare the actual generated files (`compose.yaml`, `Dockerfile`, etc.) against a set of expected fixtures.

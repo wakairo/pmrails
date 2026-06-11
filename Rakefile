@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "open3"
 require "rake/testtask"
 require "rubocop/rake_task"
 
 RAKE_DIR = ".rake"
+PRE_COMMIT_HOOK_SOURCE = ".githooks/pre-commit"
 RUBY_RUBOCOP_STAMP = "#{RAKE_DIR}/ruby_rubocop.stamp"
 RUBY_RUBOCOP_TARGETS = %w[.simplecov Rakefile lib/*.rb test/ruby/*.rb]
 
@@ -57,7 +59,6 @@ namespace :ruby do
   namespace :test do
     desc "Update golden master fixtures using the actual pmrails-init command"
     task :update_golden_master do
-      require "fileutils"
       require "tmpdir"
       require_relative "lib/pmrails"
 
@@ -106,6 +107,7 @@ SHELL_LIB_FILE_GLOB = "lib/*.sh"
 SHELL_LIBS = FileList[SHELL_LIB_FILE_GLOB]
 SHELL_PRODUCTION_FILE_GLOBS = [
   "bin/pmrails-*",
+  PRE_COMMIT_HOOK_SOURCE,
   "share/entrypoint",
   SHELL_LIB_FILE_GLOB
 ].freeze
@@ -169,6 +171,39 @@ namespace :text do
     sh ensure_command!("editorconfig-checker")
     ensure_command!("git")
     sh 'git diff --check "$(git hash-object -t tree /dev/null)"'
+  end
+end
+
+namespace :dev do
+  namespace :hooks do
+    desc "Install the optional pre-commit hook"
+    task :install do
+      ensure_command!("git")
+
+      configured_hooks_path, err, status = Open3.capture3("git", "config", "--get", "core.hooksPath")
+      if status.success?
+        abort(<<~MESSAGE)
+          [Error] core.hooksPath is already configured as #{configured_hooks_path.chomp.inspect}. It was not modified.
+          To enable PmRails checks, add `rake ci` to your existing hooks manually.
+        MESSAGE
+      end
+      abort("[Error] Could not inspect core.hooksPath.\n#{err}") unless status.exitstatus == 1
+
+      hook_path, err, status = Open3.capture3("git", "rev-parse", "--git-path", "hooks/pre-commit")
+      abort("[Error] Could not resolve the pre-commit hook path.\n#{err}") unless status.success?
+
+      hook_path = hook_path.strip
+      if File.exist?(hook_path) || File.symlink?(hook_path)
+        abort(<<~MESSAGE)
+          [Error] A pre-commit hook already exists at #{hook_path}. It was not modified.
+          To enable PmRails checks, add `rake ci` to the existing hook manually.
+        MESSAGE
+      end
+
+      FileUtils.mkdir_p(File.dirname(hook_path))
+      FileUtils.install(File.expand_path(PRE_COMMIT_HOOK_SOURCE, __dir__), hook_path, mode: 0o755)
+      puts "Installed pre-commit hook at #{hook_path}"
+    end
   end
 end
 
