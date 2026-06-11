@@ -488,11 +488,13 @@ pmrails_generate_compose_override() {
         if [ $# -eq 0 ]; then
             printf 'services: {}\n'
         else
+            # editorconfig-checker-disable
             cat <<'EOF'
 services:
   rails-app:
     ports:
 EOF
+            # editorconfig-checker-enable
             for port in "$@"; do
                 printf '      - "%s"\n' "${port}"
             done

@@ -1,2 +1,5 @@
+# Ignore rake runtime files
+/.rake/
+
 # Ignore coverage
 /coverage/
