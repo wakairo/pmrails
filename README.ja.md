@@ -308,6 +308,18 @@ pmrails-crails console
 pmrails-crails server
 ```
 
+コマンド単位で環境変数を確実にコンテナへ渡すには、`env`を介して実行します。例えば、test環境のデータベースマイグレーションは以下のコマンドで行えます。
+
+```sh
+pmrails-cmpexe env RAILS_ENV=test bin/rails db:migrate
+```
+
+> **注意:** PmRailsが生成するCompose設定にデータベースサービスが含まれる場合、`DATABASE_URL`環境変数が設定されます。`DATABASE_URL`が設定されている環境では、Railsは`db:create`においてdevelopmentデータベースと同時にtestデータベースを作成しないため、必要な場合は以下のように明示的に作成してください。
+>
+> ```sh
+> pmrails-cmpexe env RAILS_ENV=test bin/rails db:create
+> ```
+
 Railsサーバーを起動した場合は、ブラウザで`http://localhost:3000/`を開いてください。
 
 環境を破棄せずに作業を中断したい場合は、以下を実行します。
