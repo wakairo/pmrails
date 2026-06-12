@@ -305,6 +305,18 @@ pmrails-crails console
 pmrails-crails server
 ```
 
+To set environment variables for a single command reliably, run it through `env`. For example, to run database migrations for the test environment:
+
+```sh
+pmrails-cmpexe env RAILS_ENV=test bin/rails db:migrate
+```
+
+> **Note:** PmRails-generated Compose configurations that include a database service set the `DATABASE_URL` environment variable. Because Rails does not create the test database alongside the development database when `DATABASE_URL` is set, you must create it explicitly when needed:
+>
+> ```sh
+> pmrails-cmpexe env RAILS_ENV=test bin/rails db:create
+> ```
+
 If you start the Rails server, open `http://localhost:3000/` in your browser.
 
 When you want to pause work without deleting the environment, run:
