@@ -9,7 +9,7 @@ services:
     init: true
     volumes:
       - ${PWD}:/x
-      - ${_PMRAILS_VOLUME_NAME}:${_PMRAILS_GEM_HOME}
+      - gem_home:${_PMRAILS_GEM_HOME}
       - ${_PMRAILS_SCRIPT_DIR}/../share/entrypoint:/pmrails-entrypoint:ro,z
     working_dir: /x
     environment:
@@ -22,5 +22,6 @@ services:
     command: ["sleep", "infinity"]
 
 volumes:
-  ${_PMRAILS_VOLUME_NAME}:
+  gem_home:
     external: true
+    name: ${_PMRAILS_VOLUME_NAME}
