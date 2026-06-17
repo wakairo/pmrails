@@ -12,10 +12,18 @@ sudo apt install bats bats-support bats-assert shellcheck shfmt
 
 [`kcov`](https://github.com/SimonKagstrom/kcov) is also recommended if you want to generate shell script test coverage locally.
 
-For Ruby test coverage, install SimpleCov:
+For text file checks, install `editorconfig-checker`:
 
 ```sh
-sudo gem install simplecov
+sudo apt install -y golang && export PATH="$HOME/go/bin:$PATH" && go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@latest
+```
+
+Add `$HOME/go/bin` to `PATH` in your shell startup file (for example, `.bashrc`) so `editorconfig-checker` remains available in future shells.
+
+Install the Ruby gems required for development and Ruby test coverage:
+
+```sh
+sudo gem install rake minitest rubocop rubocop-rails-omakase thor activesupport simplecov
 ```
 
 ### Running Tests and Linters
