@@ -35,6 +35,9 @@ PmRailsは以下のコマンドを提供します。
 - **`pmrails-cmpexe`**: プロジェクトのCompose環境のRailsコンテナ内で任意のコマンドを実行します。\
   **使用方法**: `pmrails-cmpexe COMMAND [ARG...]`
 
+- **`pmrails-apply-dockerfile`**: 設定されたDockerfileからカスタムRailsイメージを再ビルドし、Composeの`rails-app`コンテナが既に存在する場合は、新しいイメージから再生成します。\
+  **使用方法**: `pmrails-apply-dockerfile`
+
 ### 非推奨コマンド
 
 以下のレガシーコマンドは後方互換性のために残されており、将来のリリースで削除される予定です。
@@ -500,6 +503,14 @@ PMRAILS_PROJECT_NAME="sample_app"
 `pmrails-init`は、`--database`で選択されたデータベースエンジンに合わせた実用的なDockerfileを生成します。生成されたDockerfileは、ビルド引数として`PMRAILS_RUBY_VERSION`と`PMRAILS_RUBY_VERSION_SUFFIX`の両方を受け取り、`FROM ruby:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}`で使用します。もちろん自分で一から書くことも可能です。
 
 カスタムDockerfileは、モード2とモード3の両方でオプションです。モード2では、Composeを使用せずに単一のRailsコンテナをカスタマイズできます。
+
+Dockerfileやそのビルドコンテキストを変更した後は、以下のコマンドで変更を反映します。
+
+```sh
+pmrails-apply-dockerfile
+```
+
+このコマンドはイメージを再ビルドし、以後の`pmrails-run`で利用できるようにします。Composeの`rails-app`コンテナが既に存在する場合は、新しいイメージから再生成してCompose環境を起動します。
 
 ### Compose設定のカスタマイズ
 

@@ -85,8 +85,15 @@ install_podman_stub() {
 
 install_exec_stub() {
     exec() {
-        PMRAILS_TEST_GENERATE_COUNT_AT_EXEC="${PMRAILS_TEST_GENERATE_OVERRIDE_CALLS:-0}"
         PMRAILS_TEST_BUILD_PORTS_COUNT_AT_EXEC="${PMRAILS_TEST_BUILD_PORTS_CALLS:-0}"
+        record_call "$@"
+        return 0
+    }
+}
+
+install_env_stub() {
+    env() {
+        PMRAILS_TEST_GENERATE_COUNT_AT_ENV="${PMRAILS_TEST_GENERATE_OVERRIDE_CALLS:-0}"
         record_call "$@"
         return 0
     }
@@ -245,9 +252,8 @@ setup() {
     assert_recorded_call_equals 2 expected_build_call
 }
 
-@test "pmrails_exec_podman_compose generates the port override before exec and preserves compose arguments" {
+@test "pmrails_podman_compose generates the port override before running and preserves compose arguments" {
     local expected_call=(
-        env
         PMRAILS_RUBY_VERSION=3.3.7
         _PMRAILS_SCRIPT_DIR=/opt/pmrails/bin
         _PMRAILS_GEM_HOME=/gem-home
@@ -269,12 +275,12 @@ setup() {
     )
 
     install_generate_compose_override_stub
-    install_exec_stub
+    install_env_stub
 
-    pmrails_exec_podman_compose up rails-app --detach
+    pmrails_podman_compose up rails-app --detach
 
     assert_equal "$PMRAILS_TEST_GENERATE_OVERRIDE_CALLS" "1"
-    assert_equal "$PMRAILS_TEST_GENERATE_COUNT_AT_EXEC" "1"
+    assert_equal "$PMRAILS_TEST_GENERATE_COUNT_AT_ENV" "1"
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
     assert_recorded_call_equals 1 expected_call
 }

@@ -334,6 +334,38 @@ pmrails_ensure_home_dir() {
     mkdir -p "${_PMRAILS_VAR_DIR}/home"
 }
 
+# Resolves the container image tag and name used by PmRails runtime commands.
+#
+# Globals:
+#   PMRAILS_IMAGE_REPO - Read. Must be set.
+#   PMRAILS_RUBY_VERSION - Read. Must be set.
+#   PMRAILS_RUBY_VERSION_SUFFIX - Read. Must be set. Empty or a Ruby image tag
+#       suffix fragment including its leading separator, such as "-bookworm".
+#   _PMRAILS_IMAGE_TAG - Modified.
+#   _PMRAILS_IMAGE_NAME - Modified. Always set to "<repo>:<tag>".
+# Returns:
+#   0: Always succeeds.
+pmrails_resolve_image() {
+    _PMRAILS_IMAGE_TAG="${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}"
+    _PMRAILS_IMAGE_NAME="${PMRAILS_IMAGE_REPO}:${_PMRAILS_IMAGE_TAG}"
+}
+
+# Builds the resolved project-specific container image.
+#
+# Notes: The build context is the current working directory (".").
+#
+# Globals:
+#   PMRAILS_RUBY_VERSION - Read. Passed as a build argument.
+#   PMRAILS_RUBY_VERSION_SUFFIX - Read. Passed as a build argument.
+#   PMRAILS_DOCKERFILE - Read. Used as the Dockerfile path for podman build.
+#   _PMRAILS_IMAGE_NAME - Read. Must be resolved before calling.
+# Returns:
+#   0: Image was successfully built.
+#   Non-zero: Propagates the exit status of "podman build" on failure.
+pmrails_build_image() {
+    podman build --build-arg PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" --build-arg PMRAILS_RUBY_VERSION_SUFFIX="${PMRAILS_RUBY_VERSION_SUFFIX}" -t "${_PMRAILS_IMAGE_NAME}" -f "${PMRAILS_DOCKERFILE}" .
+}
+
 # Ensures that the container image "<repo>:<tag>" exists locally.
 #
 #   - If PMRAILS_IMAGE_REPO is "ruby", podman is not invoked at all. The
@@ -342,24 +374,17 @@ pmrails_ensure_home_dir() {
 #   - Otherwise, "podman image exists" is queried, and "podman build" is
 #     invoked only when the image is missing.
 #
-# Notes: The build context is the current working directory (".").
-#
 # Globals:
 #   PMRAILS_IMAGE_REPO - Read. Must be set.
-#   PMRAILS_RUBY_VERSION - Read. Must be set.
-#   PMRAILS_RUBY_VERSION_SUFFIX - Read. Must be set. Empty or a Ruby image tag
-#       suffix fragment including its leading separator, such as "-bookworm".
-#   PMRAILS_DOCKERFILE - Read. Used as the Dockerfile path for podman build.
-#   _PMRAILS_IMAGE_TAG - Modified.
-#   _PMRAILS_IMAGE_NAME - Modified. Always set to "<repo>:<tag>".
+#   _PMRAILS_IMAGE_TAG - Modified indirectly via pmrails_resolve_image.
+#   _PMRAILS_IMAGE_NAME - Modified indirectly via pmrails_resolve_image.
 # Returns:
 #   0: Image exists or was successfully built.
 #   Non-zero: Propagates the exit status of "podman build" on failure.
 pmrails_ensure_image() {
-    _PMRAILS_IMAGE_TAG="${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}"
-    _PMRAILS_IMAGE_NAME="${PMRAILS_IMAGE_REPO}:${_PMRAILS_IMAGE_TAG}"
+    pmrails_resolve_image
     if [ "ruby" != "${PMRAILS_IMAGE_REPO}" ] && ! podman image exists "${_PMRAILS_IMAGE_NAME}"; then
-        podman build --build-arg PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" --build-arg PMRAILS_RUBY_VERSION_SUFFIX="${PMRAILS_RUBY_VERSION_SUFFIX}" -t "${_PMRAILS_IMAGE_NAME}" -f "${PMRAILS_DOCKERFILE}" .
+        pmrails_build_image
     fi
 }
 
@@ -502,10 +527,10 @@ EOF
     ) >"${_PMRAILS_COMPOSE_OVERRIDE_FILE}"
 }
 
-# Execs podman-compose with the layered Compose configuration.
+# Runs podman-compose with the layered Compose configuration.
 #
 # Generates the port-binding override file via pmrails_generate_compose_override
-# before calling exec, then replaces the current process with podman-compose.
+# before invoking podman-compose.
 #
 # Compose files are applied in the following order (later overrides earlier):
 #   1. Built-in base:
@@ -533,11 +558,10 @@ EOF
 # Arguments:
 #   $@ - Forwarded verbatim to podman-compose.
 # Returns:
-#   Does not return: This function exec's podman-compose, replacing the
-#       current process.
-pmrails_exec_podman_compose() {
+#   The exit status of podman-compose.
+pmrails_podman_compose() {
     pmrails_generate_compose_override
-    exec env \
+    env \
         PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" \
         _PMRAILS_SCRIPT_DIR="${_PMRAILS_SCRIPT_DIR}" \
         _PMRAILS_GEM_HOME="${_PMRAILS_GEM_HOME}" \
@@ -550,6 +574,77 @@ pmrails_exec_podman_compose() {
         -f "${_PMRAILS_COMPOSE_OVERRIDE_FILE}" \
         -f "${PMRAILS_COMPOSE_FILE}" \
         "$@"
+}
+
+# Returns success when a Compose-managed rails-app container exists.
+#
+# Stopped containers are included because applying a Dockerfile should replace
+# an existing Compose Rails container before the environment is brought up.
+# Podman query failures abort the script rather than being mistaken for an
+# absent container.
+#
+# Globals:
+#   PMRAILS_PROJECT_NAME - Read. Selects the Compose project.
+# Returns:
+#   0: At least one rails-app container exists.
+#   1: No rails-app container exists.
+#   Does not return: Propagates failures from "podman ps".
+pmrails_compose_rails_container_exists() {
+    _pmrails_rails_container_ids=$(
+        podman ps -a -q \
+            --filter "label=com.docker.compose.project=${PMRAILS_PROJECT_NAME}" \
+            --filter "label=com.docker.compose.service=rails-app"
+    ) || exit $?
+
+    if [ -n "${_pmrails_rails_container_ids}" ]; then
+        unset _pmrails_rails_container_ids
+        return 0
+    fi
+
+    unset _pmrails_rails_container_ids
+    return 1
+}
+
+# Applies the configured Dockerfile to the PmRails runtime environment.
+#
+# The project image is always rebuilt when the Dockerfile exists. If a
+# Compose-managed rails-app container already exists, it is recreated from the
+# rebuilt image and the Compose environment is brought up. This makes the new
+# image immediately usable while avoiding creation of a new Compose environment
+# for projects that currently use only pmrails-run.
+#
+# Globals:
+#   PMRAILS_DOCKERFILE - Read. Dockerfile to apply.
+#   PMRAILS_COMPOSE_FILE - Read. Existing file enables Compose reconciliation.
+# Returns:
+#   0: No action was needed, or the Dockerfile was successfully applied.
+pmrails_apply_dockerfile() {
+    if [ ! -f "${PMRAILS_DOCKERFILE}" ]; then
+        printf 'pmrails: Dockerfile not found at "%s"; nothing to apply.\n' "${PMRAILS_DOCKERFILE}"
+        return 0
+    fi
+
+    printf 'pmrails: building the Rails image from "%s"...\n' "${PMRAILS_DOCKERFILE}"
+    pmrails_resolve_image
+    pmrails_build_image
+
+    if [ ! -f "${PMRAILS_COMPOSE_FILE}" ]; then
+        return 0
+    fi
+
+    if ! pmrails_compose_rails_container_exists; then
+        printf '%s\n' 'pmrails: no Compose Rails container exists; only the image was rebuilt.'
+        return 0
+    fi
+
+    pmrails_ensure_volume
+    pmrails_ensure_home_dir
+
+    printf '%s\n' 'pmrails: recreating the Compose Rails container...'
+    pmrails_podman_compose up --force-recreate --no-deps --no-start rails-app
+
+    printf '%s\n' 'pmrails: starting the Compose environment...'
+    pmrails_podman_compose up -d
 }
 
 # Builds podman "-p" arguments from PMRAILS_PORTS.
