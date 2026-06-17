@@ -36,6 +36,9 @@ PmRails provides the following commands:
 - **`pmrails-cmpexe`**: Runs an arbitrary command inside a Rails container in the project's Compose environment.\
   **Usage**: `pmrails-cmpexe COMMAND [ARG...]`
 
+- **`pmrails-apply-dockerfile`**: Rebuilds the custom Rails image from the configured Dockerfile and, if a Compose `rails-app` container already exists, recreates it from the rebuilt image.\
+  **Usage**: `pmrails-apply-dockerfile`
+
 ### Deprecated Commands
 
 The following legacy commands are kept for backward compatibility and will be removed in a future release:
@@ -493,6 +496,14 @@ If `.pmrails/Dockerfile` exists, `pmrails-run` (and the `rails-app` service in `
 `pmrails-init` generates a sensible Dockerfile that matches the database engine selected via `--database`. The generated Dockerfile receives both `PMRAILS_RUBY_VERSION` and `PMRAILS_RUBY_VERSION_SUFFIX` as build arguments and uses them in `FROM ruby:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}`. You can also write your own from scratch.
 
 A custom Dockerfile is optional in both Mode 2 and Mode 3. In Mode 2 it lets you customize the single Rails container without Compose.
+
+After changing the Dockerfile or its build context, apply the changes with:
+
+```sh
+pmrails-apply-dockerfile
+```
+
+This rebuilds the image, making it available to subsequent `pmrails-run` commands. If a Compose `rails-app` container already exists, PmRails also recreates it from the rebuilt image and brings the Compose environment up.
 
 ### Custom Compose Configuration
 

@@ -14,4 +14,4 @@ fi
 pmrails_ensure_image
 pmrails_ensure_volume
 pmrails_ensure_home_dir
-pmrails_exec_podman_compose "$@"
+pmrails_podman_compose "$@"

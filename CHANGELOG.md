@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pmrails-run` for running arbitrary commands inside a single Rails container with project-local runtime directories under `.pmrails/var/`.
 - `pmrails-compose` as the multi-container entrypoint for Compose-based development.
 - `pmrails-init` to generate `.pmrails/config`, `.pmrails/Dockerfile`, and `.pmrails/compose.yaml` for an existing Rails project.
+- `pmrails-apply-dockerfile` to rebuild the custom Rails image and recreate an existing Compose Rails container after Dockerfile changes.
 - A Compose-based development workflow with built-in Selenium support and database presets for SQLite3, PostgreSQL, MySQL, Trilogy, and MariaDB variants.
 - Automatic patching of `test/application_system_test_case.rb` during `pmrails-init` so system tests can run against a remote Selenium container.
 - Layered configuration loading from system, user, project, and project-local config files.
