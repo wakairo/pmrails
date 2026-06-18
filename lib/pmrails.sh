@@ -35,8 +35,8 @@ pmrails_resolve_ruby_version() {
     fi
     PMRAILS_RUBY_VERSION=$(sed -n '1s/^[^0-9]*\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*$/\1/p' .ruby-version)
     if [ -z "${PMRAILS_RUBY_VERSION}" ]; then
-        printf '%s\n' 'error: could not parse a version (major.minor.patch) from .ruby-version' >&2
-        printf 'first line: "%s"\n' "$(sed -n '1p' .ruby-version)" >&2
+        printf '%s\n' 'pmrails: error: could not parse a version (major.minor.patch) from .ruby-version' >&2
+        printf 'pmrails: .ruby-version first line: "%s"\n' "$(sed -n '1p' .ruby-version)" >&2
         exit 3
     fi
 }
@@ -126,7 +126,7 @@ pmrails_is_auto_config_value() {
         return 0
         ;;
     :*)
-        printf 'error: unsupported reserved PMRAILS configuration value: "%s"\n' "$1" >&2
+        printf 'pmrails: error: unsupported reserved PMRAILS configuration value: "%s"\n' "$1" >&2
         exit 3
         ;;
     *)
@@ -260,7 +260,7 @@ pmrails_fill_dynamic_defaults() {
     pmrails_resolve_ruby_version
     PMRAILS_DOCKERFILE=${PMRAILS_DOCKERFILE:-'.pmrails/Dockerfile'}
     if [ -z "${PWD:-}" ]; then
-        printf '%s\n' 'error: PWD can not be unset nor empty' >&2
+        printf '%s\n' 'pmrails: error: PWD can not be unset nor empty' >&2
         exit 2
     fi
     # shellcheck disable=SC2018,SC2019
@@ -269,7 +269,7 @@ pmrails_fill_dynamic_defaults() {
         basename "${PWD}" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]/_/g; s/_\{2,\}/_/g; s/^_//' | cut -c 1-16 | sed 's/_*$//'
     )"}
     if [ -z "${PMRAILS_PROJECT_NAME}" ]; then
-        printf '%s\n' 'error: PMRAILS_PROJECT_NAME can not be empty' >&2
+        printf '%s\n' 'pmrails: error: PMRAILS_PROJECT_NAME can not be empty' >&2
         exit 2
     fi
     pmrails_resolve_image_repo
@@ -831,7 +831,7 @@ shift
 gem_out=$(gem install rails -v "${ver}")
 real_ver=$(printf "%s\n" "${gem_out}" | sed -nE "/\.gem([[:space:]]|\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\$).*/\2/p" | tail -n 1)
 if [ -z "${real_ver}" ]; then
-    printf "pmrails: could not extract the installed Rails version from \"gem install rails -v %s\" output\n" "${ver}" >&2
+    printf "pmrails: error: could not extract the installed Rails version from \"gem install rails -v %s\" output\n" "${ver}" >&2
     exit 1
 fi
 printf "pmrails: using Rails version %s for rails new\n" "${real_ver}"

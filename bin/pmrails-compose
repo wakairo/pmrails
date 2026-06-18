@@ -7,7 +7,7 @@ _PMRAILS_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 pmrails_setup
 
 if [ ! -f "${PMRAILS_COMPOSE_FILE}" ]; then
-    printf '%s: %s\n' 'error: Compose file not found' "${PMRAILS_COMPOSE_FILE}" >&2
+    printf 'pmrails: error: Compose file not found: "%s"\n' "${PMRAILS_COMPOSE_FILE}" >&2
     exit 1
 fi
 
