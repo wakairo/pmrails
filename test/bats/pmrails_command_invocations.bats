@@ -141,7 +141,7 @@ setup() {
     _PMRAILS_IMAGE_NAME="pmrails-sample_app:3.3.7"
     _PMRAILS_VOLUME_NAME="pmrails-gem_home-4.0.3"
     _PMRAILS_SCRIPT_DIR="/opt/pmrails/bin"
-    PMRAILS_TEST_RAILS_NEW_SCRIPT=$'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    printf "pmrails: could not extract the installed Rails version from \\"gem install rails -v %s\\" output\\n" "${ver}" >&2\n    exit 1\nfi\nprintf "pmrails: using Rails version %s for rails new\\n" "${real_ver}"\nexec rails "_${real_ver}_" new "$@"\n'
+    PMRAILS_TEST_RAILS_NEW_SCRIPT=$'\nset -eu\nver="$1"\nshift\ngem_out=$(gem install rails -v "${ver}")\nreal_ver=$(printf "%s\\n" "${gem_out}" | sed -nE "/\\.gem([[:space:]]|\\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\\$).*/\\2/p" | tail -n 1)\nif [ -z "${real_ver}" ]; then\n    printf "pmrails: error: could not extract the installed Rails version from \\"gem install rails -v %s\\" output\\n" "${ver}" >&2\n    exit 1\nfi\nprintf "pmrails: using Rails version %s for rails new\\n" "${real_ver}"\nexec rails "_${real_ver}_" new "$@"\n'
 }
 
 @test "assert_array_equals reports full expected and actual arrays on mismatch" {

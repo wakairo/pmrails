@@ -23,5 +23,5 @@ setup() {
     run pmrails_is_auto_config_value ":RESET"
 
     assert_failure 3
-    assert_output --partial "unsupported reserved PMRAILS configuration value"
+    assert_output --partial 'pmrails: error: unsupported reserved PMRAILS configuration value'
 }
