@@ -6,7 +6,7 @@ load test_helper.bash
 install_podman_stub() {
     podman() {
         printf "%s\n" "${PMRAILS_TEST_PODMAN_RUBY_VERSION:-1.2.9}"
-        return 0
+        return "${PMRAILS_TEST_PODMAN_RUBY_VERSION_STATUS:-0}"
     }
 }
 
@@ -35,4 +35,14 @@ setup() {
     _PMRAILS_IMAGE_NAME="ruby:${_PMRAILS_IMAGE_TAG}"
     pmrails_ensure_volume
     assert_equal "$_PMRAILS_VOLUME_NAME" "pmrails-gem_home-1.2.9"
+}
+
+@test "propagates Ruby version detection failures" {
+    _PMRAILS_IMAGE_TAG="latest"
+    _PMRAILS_IMAGE_NAME="ruby:${_PMRAILS_IMAGE_TAG}"
+    PMRAILS_TEST_PODMAN_RUBY_VERSION_STATUS=76
+
+    run pmrails_ensure_volume
+
+    assert_failure 76
 }

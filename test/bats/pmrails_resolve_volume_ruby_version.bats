@@ -10,7 +10,7 @@ setup() {
 install_podman_stub() {
     podman() {
         printf "%s\n" "${PMRAILS_TEST_PODMAN_RUBY_VERSION:-1.2.9}"
-        return 0
+        return "${PMRAILS_TEST_PODMAN_RUBY_VERSION_STATUS:-0}"
     }
 }
 
@@ -58,4 +58,13 @@ install_podman_stub() {
     run pmrails_resolve_volume_ruby_version "alpine3.23.1" "ruby:alpine3.23.1"
     assert_success
     assert_output "1.2.9"
+}
+
+@test "propagates podman failures when querying the image Ruby version" {
+    install_podman_stub
+    PMRAILS_TEST_PODMAN_RUBY_VERSION_STATUS=77
+
+    run pmrails_resolve_volume_ruby_version "latest" "ruby:latest"
+
+    assert_failure 77
 }
