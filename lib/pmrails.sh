@@ -421,7 +421,7 @@ pmrails_resolve_volume_ruby_version() {
 
     _pmrails_volume_ruby_version=$(printf "%s\n" "${_pmrails_image_tag}" | sed -n '1s/^\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\).*$/\1/p')
     if [ -z "${_pmrails_volume_ruby_version}" ]; then
-        _pmrails_volume_ruby_version=$(podman run --rm "${_pmrails_image_name}" ruby -e 'puts RUBY_VERSION')
+        _pmrails_volume_ruby_version=$(podman run --rm "${_pmrails_image_name}" ruby -e 'puts RUBY_VERSION') || exit $?
     fi
     printf "%s\n" "${_pmrails_volume_ruby_version}"
 
@@ -477,7 +477,7 @@ pmrails_resolve_gem_home_abi() {
 #   0: Volume exists or was created.
 pmrails_ensure_volume() {
     pmrails_resolve_gem_home_abi
-    _pmrails_volume_ruby_version=$(pmrails_resolve_volume_ruby_version "${_PMRAILS_IMAGE_TAG}" "${_PMRAILS_IMAGE_NAME}")
+    _pmrails_volume_ruby_version=$(pmrails_resolve_volume_ruby_version "${_PMRAILS_IMAGE_TAG}" "${_PMRAILS_IMAGE_NAME}") || exit $?
 
     _PMRAILS_VOLUME_NAME="pmrails-gem_home-${_pmrails_volume_ruby_version}"
     if [ -n "${PMRAILS_GEM_HOME_ABI}" ]; then
@@ -828,7 +828,7 @@ pmrails_podman_run_rails_new() {
 set -eu
 ver="$1"
 shift
-gem_out=$(gem install rails -v "${ver}")
+gem_out=$(gem install rails -v "${ver}") || exit $?
 real_ver=$(printf "%s\n" "${gem_out}" | sed -nE "/\.gem([[:space:]]|\$)/d; s/(^|.*[[:space:]])rails-([0-9][0-9A-Za-z.]*)([[:space:]]|\$).*/\2/p" | tail -n 1)
 if [ -z "${real_ver}" ]; then
     printf "pmrails: error: could not extract the installed Rails version from \"gem install rails -v %s\" output\n" "${ver}" >&2
