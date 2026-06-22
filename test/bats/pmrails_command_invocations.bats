@@ -165,40 +165,7 @@ setup() {
     assert_output --partial "actual   : ([0]=alpha [1]=different [2]=gamma [3]=extra)"
 }
 
-@test "pmrails_ensure_image selects the upstream ruby image without podman checks" {
-    install_podman_stub
-    PMRAILS_IMAGE_REPO="ruby"
-    PMRAILS_RUBY_VERSION="3.2.2"
-
-    pmrails_ensure_image
-
-    assert_equal "$_PMRAILS_IMAGE_NAME" "ruby:3.2.2"
-    assert_equal "$PMRAILS_TEST_CALL_COUNT" "0"
-}
-
-@test "pmrails_ensure_image reuses an existing project image" {
-    local expected_call=(
-        image
-        exists
-        pmrails-sample_app:3.3.7
-    )
-
-    install_podman_stub
-    PMRAILS_TEST_PODMAN_IMAGE_EXISTS_STATUS=0
-
-    pmrails_ensure_image
-
-    assert_equal "$_PMRAILS_IMAGE_NAME" "pmrails-sample_app:3.3.7"
-    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
-    assert_recorded_call_equals 1 expected_call
-}
-
-@test "pmrails_ensure_image builds a missing project image" {
-    local expected_exists_call=(
-        image
-        exists
-        pmrails-sample_app:3.3.7
-    )
+@test "pmrails_build_image builds the resolved project image" {
     local expected_build_call=(
         build
         --build-arg
@@ -213,21 +180,14 @@ setup() {
     )
 
     install_podman_stub
-    PMRAILS_TEST_PODMAN_IMAGE_EXISTS_STATUS=1
 
-    pmrails_ensure_image
+    pmrails_build_image
 
-    assert_equal "$PMRAILS_TEST_CALL_COUNT" "2"
-    assert_recorded_call_equals 1 expected_exists_call
-    assert_recorded_call_equals 2 expected_build_call
+    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
+    assert_recorded_call_equals 1 expected_build_call
 }
 
-@test "pmrails_ensure_image builds a missing project image with suffix" {
-    local expected_exists_call=(
-        image
-        exists
-        pmrails-sample_app:3.3.7-bookworm
-    )
+@test "pmrails_build_image passes the Ruby version suffix build arg" {
     local expected_build_call=(
         build
         --build-arg
@@ -242,14 +202,13 @@ setup() {
     )
 
     install_podman_stub
-    PMRAILS_TEST_PODMAN_IMAGE_EXISTS_STATUS=1
 
     PMRAILS_RUBY_VERSION_SUFFIX="-bookworm"
-    pmrails_ensure_image
+    _PMRAILS_IMAGE_NAME="pmrails-sample_app:3.3.7-bookworm"
+    pmrails_build_image
 
-    assert_equal "$PMRAILS_TEST_CALL_COUNT" "2"
-    assert_recorded_call_equals 1 expected_exists_call
-    assert_recorded_call_equals 2 expected_build_call
+    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
+    assert_recorded_call_equals 1 expected_build_call
 }
 
 @test "pmrails_podman_compose generates the port override before running and preserves compose arguments" {
