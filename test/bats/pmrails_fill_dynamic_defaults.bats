@@ -16,6 +16,7 @@ setup() {
 
     assert_equal "$PMRAILS_RUBY_VERSION" "latest"
     assert_equal "$PMRAILS_DOCKERFILE" ".pmrails/Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" ".pmrails/build_context"
     assert_equal "$PMRAILS_PROJECT_NAME" "plain_project"
     assert_equal "$PMRAILS_IMAGE_REPO" "ruby"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
@@ -32,6 +33,7 @@ setup() {
 
     assert_equal "$PMRAILS_RUBY_VERSION" "3.3.7"
     assert_equal "$PMRAILS_DOCKERFILE" ".pmrails/Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" ".pmrails/build_context"
     assert_equal "$PMRAILS_PROJECT_NAME" "sample_app_devel"
     assert_equal "$PMRAILS_IMAGE_REPO" "pmrails-sample_app_devel"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
@@ -46,6 +48,7 @@ setup() {
 
     PMRAILS_RUBY_VERSION="8.8.8"
     PMRAILS_DOCKERFILE="custom/Dockerfile"
+    PMRAILS_BUILD_CONTEXT="custom/build_context"
     PMRAILS_PROJECT_NAME="explicit_project"
     PMRAILS_IMAGE_REPO="custom/repo"
     PMRAILS_RUBY_VERSION_AT_NEW="7.7.7"
@@ -55,6 +58,7 @@ setup() {
 
     assert_equal "$PMRAILS_RUBY_VERSION" "8.8.8"
     assert_equal "$PMRAILS_DOCKERFILE" "custom/Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" "custom/build_context"
     assert_equal "$PMRAILS_PROJECT_NAME" "explicit_project"
     assert_equal "$PMRAILS_IMAGE_REPO" "custom/repo"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "7.7.7"
@@ -67,6 +71,7 @@ setup() {
 
     assert_equal "$PMRAILS_RUBY_VERSION" "8.8.8"
     assert_equal "$PMRAILS_DOCKERFILE" "custom/Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" "custom/build_context"
     assert_equal "$PMRAILS_PROJECT_NAME" "explicit_project"
     assert_equal "$PMRAILS_IMAGE_REPO" "custom/repo"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "7.7.7"

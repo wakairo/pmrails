@@ -135,6 +135,7 @@ setup() {
     PMRAILS_RUBY_VERSION="3.3.7"
     PMRAILS_RUBY_VERSION_SUFFIX=""
     PMRAILS_DOCKERFILE=".pmrails/Dockerfile"
+    PMRAILS_BUILD_CONTEXT=".pmrails/build_context"
     PMRAILS_PROJECT_NAME="sample_app"
     PMRAILS_COMPOSE_FILE=".pmrails/compose.yaml"
     PMRAILS_RUBY_VERSION_AT_NEW="3.4.1"
@@ -165,8 +166,8 @@ setup() {
     assert_output --partial "actual   : ([0]=alpha [1]=different [2]=gamma [3]=extra)"
 }
 
-@test "pmrails_build_image builds the resolved project image" {
-    local expected_build_call=(
+@test "pmrails_build_image invokes podman build with the default build context" {
+    local expected_call=(
         build
         --build-arg
         PMRAILS_RUBY_VERSION=3.3.7
@@ -176,19 +177,20 @@ setup() {
         pmrails-sample_app:3.3.7
         -f
         .pmrails/Dockerfile
-        .
+        .pmrails/build_context
     )
 
     install_podman_stub
 
     pmrails_build_image
 
+    assert [ -d ".pmrails/build_context" ]
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
-    assert_recorded_call_equals 1 expected_build_call
+    assert_recorded_call_equals 1 expected_call
 }
 
-@test "pmrails_build_image passes the Ruby version suffix build arg" {
-    local expected_build_call=(
+@test "pmrails_build_image passes the Ruby version suffix to podman build" {
+    local expected_call=(
         build
         --build-arg
         PMRAILS_RUBY_VERSION=3.3.7
@@ -198,7 +200,7 @@ setup() {
         pmrails-sample_app:3.3.7-bookworm
         -f
         .pmrails/Dockerfile
-        .
+        .pmrails/build_context
     )
 
     install_podman_stub
@@ -207,8 +209,33 @@ setup() {
     _PMRAILS_IMAGE_NAME="pmrails-sample_app:3.3.7-bookworm"
     pmrails_build_image
 
+    assert [ -d ".pmrails/build_context" ]
     assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
-    assert_recorded_call_equals 1 expected_build_call
+    assert_recorded_call_equals 1 expected_call
+}
+
+@test "pmrails_build_image passes the configured build context to podman build" {
+    local expected_call=(
+        build
+        --build-arg
+        PMRAILS_RUBY_VERSION=3.3.7
+        --build-arg
+        PMRAILS_RUBY_VERSION_SUFFIX=
+        -t
+        pmrails-sample_app:3.3.7
+        -f
+        .pmrails/Dockerfile
+        custom/build_context
+    )
+
+    install_podman_stub
+
+    PMRAILS_BUILD_CONTEXT="custom/build_context"
+    pmrails_build_image
+
+    assert [ -d "custom/build_context" ]
+    assert_equal "$PMRAILS_TEST_CALL_COUNT" "1"
+    assert_recorded_call_equals 1 expected_call
 }
 
 @test "pmrails_podman_compose generates the port override before running and preserves compose arguments" {

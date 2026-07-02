@@ -485,6 +485,12 @@ PMRAILS_PROJECT_NAME="sample_app"
 
 プロジェクトのDockerfileへのパスです。デフォルトは`.pmrails/Dockerfile`です。ファイルが存在する場合、`pmrails-run`と`pmrails-compose`はプロジェクト固有のイメージ（`pmrails-${PMRAILS_PROJECT_NAME}`）をビルドして使用します。存在しない場合は、公式の`ruby`イメージが直接使用されます。詳細は[Railsコンテナイメージのカスタマイズ](#railsコンテナイメージのカスタマイズ)を参照してください。
 
+#### `PMRAILS_BUILD_CONTEXT`
+
+`podman build`へビルドコンテキストとして渡すディレクトリへのパスです。デフォルトは`.pmrails/build_context`です。Dockerfileの`COPY`と`ADD`のコピー元は、このディレクトリを基準に解決されます。
+
+> **警告:** ビルドコンテキスト内のファイルは、通常のGit管理対象となるビルド入力であり、機密情報を含まないことを前提としています。認証情報などの機密情報はビルドコンテキスト内に置かないことを推奨します。
+
 #### `PMRAILS_COMPOSE_FILE`
 
 プロジェクトのCompose設定ファイルへのパスです。デフォルトは`.pmrails/compose.yaml`です。`pmrails-compose`はこのファイルが存在することを必要とし、存在しない場合はエラーで終了します。
@@ -501,6 +507,8 @@ PMRAILS_PROJECT_NAME="sample_app"
 `.pmrails/Dockerfile`が存在する場合、`pmrails-run`（および`pmrails-compose`内の`rails-app`サービス）は、公式の`ruby`イメージの代わりに、`pmrails-${PMRAILS_PROJECT_NAME}:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}`という名前のプロジェクト固有のイメージをビルドして使用します。これにより、Railsアプリケーションが必要とするシステムパッケージ、ネイティブビルドツール、またはその他の依存関係を事前にインストールできます。
 
 `pmrails-init`は、`--database`で選択されたデータベースエンジンに合わせた実用的なDockerfileを生成します。生成されたDockerfileは、ビルド引数として`PMRAILS_RUBY_VERSION`と`PMRAILS_RUBY_VERSION_SUFFIX`の両方を受け取り、`FROM ruby:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}`で使用します。もちろん自分で一から書くことも可能です。
+
+デフォルトでは、Railsプロジェクトディレクトリ全体ではなく、`.pmrails/build_context/`のみをビルドコンテキストとして使用します。`COPY`や`ADD`で必要なファイルはこのディレクトリへ置くか、必要に応じて`PMRAILS_BUILD_CONTEXT`へ別のディレクトリを設定してください。プロジェクトツリー全体を意図的にビルドへ公開する場合に限り、`.`を設定してください。その際には、`.pmrails/var/`は、認証情報やキャッシュデータを含む可能性があるため（[`.pmrails`ディレクトリの管理](#pmrailsディレクトリの管理)を参照）、機密情報とともに`.dockerignore`で除外してください。
 
 カスタムDockerfileは、モード2とモード3の両方でオプションです。モード2では、Composeを使用せずに単一のRailsコンテナをカスタマイズできます。
 

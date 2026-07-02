@@ -174,6 +174,9 @@ pmrails_unset_auto_config_variables() {
     if pmrails_is_auto_config_value "${PMRAILS_DOCKERFILE:-}"; then
         unset PMRAILS_DOCKERFILE
     fi
+    if pmrails_is_auto_config_value "${PMRAILS_BUILD_CONTEXT:-}"; then
+        unset PMRAILS_BUILD_CONTEXT
+    fi
     if pmrails_is_auto_config_value "${PMRAILS_COMPOSE_FILE:-}"; then
         unset PMRAILS_COMPOSE_FILE
     fi
@@ -241,6 +244,7 @@ pmrails_load_config_files() {
 # Globals:
 #   PMRAILS_RUBY_VERSION - Read/Modified. Resolved by pmrails_resolve_ruby_version.
 #   PMRAILS_DOCKERFILE - Read/Modified.
+#   PMRAILS_BUILD_CONTEXT - Read/Modified.
 #   PMRAILS_PROJECT_NAME - Read/Modified. Defaults to a sanitized, truncated
 #       form of the current directory name.
 #   PMRAILS_IMAGE_REPO - Read/Modified. Resolved by pmrails_resolve_image_repo.
@@ -259,6 +263,7 @@ pmrails_load_config_files() {
 pmrails_fill_dynamic_defaults() {
     pmrails_resolve_ruby_version
     PMRAILS_DOCKERFILE=${PMRAILS_DOCKERFILE:-'.pmrails/Dockerfile'}
+    PMRAILS_BUILD_CONTEXT=${PMRAILS_BUILD_CONTEXT:-'.pmrails/build_context'}
     if [ -z "${PWD:-}" ]; then
         printf '%s\n' 'pmrails: error: PWD can not be unset nor empty' >&2
         exit 2
@@ -305,6 +310,7 @@ pmrails_fill_dynamic_defaults() {
 #   PMRAILS_PORTS
 #   PMRAILS_PROJECT_NAME
 #   PMRAILS_DOCKERFILE
+#   PMRAILS_BUILD_CONTEXT
 #   PMRAILS_COMPOSE_FILE
 #
 # Globals:
@@ -352,18 +358,23 @@ pmrails_resolve_image() {
 
 # Builds the resolved project-specific container image.
 #
-# Notes: The build context is the current working directory (".").
-#
 # Globals:
 #   PMRAILS_RUBY_VERSION - Read. Passed as a build argument.
 #   PMRAILS_RUBY_VERSION_SUFFIX - Read. Passed as a build argument.
 #   PMRAILS_DOCKERFILE - Read. Used as the Dockerfile path for podman build.
+#   PMRAILS_BUILD_CONTEXT - Read. Used as the podman build context.
 #   _PMRAILS_IMAGE_NAME - Read. Must be resolved before calling.
 # Returns:
 #   0: Image was successfully built.
 #   Non-zero: Propagates the exit status of "podman build" on failure.
 pmrails_build_image() {
-    podman build --build-arg PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" --build-arg PMRAILS_RUBY_VERSION_SUFFIX="${PMRAILS_RUBY_VERSION_SUFFIX}" -t "${_PMRAILS_IMAGE_NAME}" -f "${PMRAILS_DOCKERFILE}" .
+    mkdir -p "${PMRAILS_BUILD_CONTEXT}"
+    podman build \
+        --build-arg PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" \
+        --build-arg PMRAILS_RUBY_VERSION_SUFFIX="${PMRAILS_RUBY_VERSION_SUFFIX}" \
+        -t "${_PMRAILS_IMAGE_NAME}" \
+        -f "${PMRAILS_DOCKERFILE}" \
+        "${PMRAILS_BUILD_CONTEXT}"
 }
 
 # Ensures that the container image "<repo>:<tag>" exists locally.
