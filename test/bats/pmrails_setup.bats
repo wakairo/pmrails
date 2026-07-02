@@ -28,6 +28,7 @@ setup() {
     assert_equal "$PMRAILS_PORTS" "3000:3000"
     assert_equal "$PMRAILS_PROJECT_NAME" "sample_app"
     assert_equal "$PMRAILS_DOCKERFILE" ".pmrails/Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" ".pmrails/build_context"
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
 }
 
@@ -49,19 +50,22 @@ setup() {
     assert_equal "$PMRAILS_IMAGE_REPO" "ruby"
     assert_equal "$PMRAILS_PROJECT_NAME" "env_wins"
     assert_equal "$PMRAILS_DOCKERFILE" ".pmrails/Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" ".pmrails/build_context"
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
 }
 
 @test "config values participate in setup before dynamic defaults fill the remaining runtime values" {
     enter_test_project_dir "configured-df"
     write_lines_to ".pmrails/config" \
-        'PMRAILS_DOCKERFILE="containers/dev.Dockerfile"'
+        'PMRAILS_DOCKERFILE="containers/dev.Dockerfile"' \
+        'PMRAILS_BUILD_CONTEXT="containers/build_context"'
     write_lines_to "containers/dev.Dockerfile" "FROM ruby:latest"
 
     pmrails_setup
 
     assert_equal "$PMRAILS_RUBY_VERSION" "latest"
     assert_equal "$PMRAILS_DOCKERFILE" "containers/dev.Dockerfile"
+    assert_equal "$PMRAILS_BUILD_CONTEXT" "containers/build_context"
     assert_equal "$PMRAILS_PROJECT_NAME" "configured_df"
     assert_equal "$PMRAILS_IMAGE_REPO" "pmrails-configured_df"
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"

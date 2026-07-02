@@ -25,6 +25,11 @@
 #
 # PMRAILS_DOCKERFILE=".pmrails/Dockerfile"
 
+# Directory used as the build context for a custom Rails container image
+# Files referenced by Dockerfile COPY and ADD instructions are resolved from here.
+#
+# PMRAILS_BUILD_CONTEXT=".pmrails/build_context"
+
 # Path to the Compose file used by pmrails-compose
 #
 # PMRAILS_COMPOSE_FILE=".pmrails/compose.yaml"

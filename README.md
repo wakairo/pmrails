@@ -478,6 +478,12 @@ PMRAILS_PROJECT_NAME="sample_app"
 
 Path to the project Dockerfile. Defaults to `.pmrails/Dockerfile`. When the file exists, `pmrails-run` and `pmrails-compose` build and use a project-specific image (`pmrails-${PMRAILS_PROJECT_NAME}`); when it does not, an upstream `ruby` image is used directly. See [Custom Rails Container Image](#custom-rails-container-image).
 
+#### `PMRAILS_BUILD_CONTEXT`
+
+Path to the directory passed to `podman build` as the build context. Defaults to `.pmrails/build_context`. Dockerfile `COPY` and `ADD` sources are resolved relative to this directory.
+
+> **Warning:** Files placed in the build context are expected to be ordinary, version-controlled build inputs and must not contain secrets. It is recommended to keep credentials and other sensitive values outside the context.
+
 #### `PMRAILS_COMPOSE_FILE`
 
 Path to the project Compose configuration file. Defaults to `.pmrails/compose.yaml`. `pmrails-compose` requires this file to exist and exits with an error otherwise.
@@ -494,6 +500,8 @@ For details, see [Automatic Gem Sharing](#automatic-gem-sharing).
 If `.pmrails/Dockerfile` exists, `pmrails-run` (and the `rails-app` service in `pmrails-compose`) builds and uses a project-specific image named `pmrails-${PMRAILS_PROJECT_NAME}:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}` instead of the upstream `ruby` image. This lets you preinstall system packages, native build tools, or other dependencies that your Rails application needs.
 
 `pmrails-init` generates a sensible Dockerfile that matches the database engine selected via `--database`. The generated Dockerfile receives both `PMRAILS_RUBY_VERSION` and `PMRAILS_RUBY_VERSION_SUFFIX` as build arguments and uses them in `FROM ruby:${PMRAILS_RUBY_VERSION}${PMRAILS_RUBY_VERSION_SUFFIX}`. You can also write your own from scratch.
+
+By default, PmRails uses only `.pmrails/build_context/` as the build context, not the Rails project root. Put files required by `COPY` or `ADD` in that directory, or set `PMRAILS_BUILD_CONTEXT` to another directory when necessary. Set it to `.` only when you intentionally want the entire project tree available to the build. Note that `.pmrails/var/` may contain credentials or cached data (see [Managing the `.pmrails` Directory](#pmrails--local-directory-and-in-container-environment-variables)); exclude it (and other sensitive files) via `.dockerignore` if you do.
 
 A custom Dockerfile is optional in both Mode 2 and Mode 3. In Mode 2 it lets you customize the single Rails container without Compose.
 
