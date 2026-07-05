@@ -557,6 +557,96 @@ The following table shows how environment variables are mapped to project-local 
 - **Security:** In multi-user environments, ensure `.pmrails/` is readable only by your user (e.g., `chmod -R go-rwx .pmrails`), as it may contain credentials or cached data.
 
 
+## Handling Sensitive Information
+
+PmRails does not provide a secret store. The following are practical development guidelines, not a complete security model. Use least-privileged development credentials and never commit, print, or log plaintext secrets.
+
+### Prefer Short-Lived, Identity-Based Credentials
+
+When supported, use identity federation or SSO instead of storing long-lived access keys.
+
+For example, install AWS CLI v2 in the Rails image and configure an IAM Identity Center profile ahead of time. Then sign in from the container:
+
+```sh
+pmrails-cmpexe aws sso login --profile my-dev
+```
+
+Add `AWS_PROFILE: my-dev` to the `environment` block of the `rails-app` service in `.pmrails/compose.yaml` so Rails selects that profile automatically. The AWS SDK for Ruby can then resolve temporary credentials without embedding keys in application code:
+
+```ruby
+s3 = Aws::S3::Client.new(region: "ap-northeast-1")
+```
+
+> **Note:** SSO still caches sensitive tokens under `.pmrails/var/home/.aws/sso/cache`. Protect that directory, use a least-privileged development profile, and run `pmrails-cmpexe aws sso logout` when appropriate. See the [AWS SDK for Ruby authentication guide](https://docs.aws.amazon.com/sdk-for-ruby/v3/developer-guide/credentials.html).
+
+### Prefer File-Based Compose Secrets
+
+For Mode 3, [Compose secrets](https://compose-spec.github.io/compose-spec/09-secrets.html) keep values out of the image and container environment. Each secret is made available as a read-only file only to services that explicitly request it.
+
+```yaml
+services:
+  rails-app:
+    environment:
+      API_KEY_FILE: /run/secrets/api_key
+    secrets:
+      - api_key
+
+secrets:
+  api_key:
+    file: "${HOME}/.config/pmrails/projects/${PMRAILS_PROJECT_NAME}/secrets/api_key"
+```
+
+> **Note:** The secret's source file remains plaintext on the host. Compose secrets are not an encrypted store; they only limit which services can read the value.
+
+Keep the source file outside the repository. Set its parent directory to mode `0700` and the file itself to mode `0600`. If access is denied on an SELinux system, see [SELinux Considerations](#selinux-considerations). Also, avoid putting secret values in command arguments or shell history.
+
+Rails can read the value without placing it in the process environment:
+
+```ruby
+api_key = File.read(ENV.fetch("API_KEY_FILE")).chomp
+```
+
+### Use `env_file` Only When Required
+
+If your production platform expects secrets as environment variables (for example, on Heroku), Mode 3 can mirror that locally with `env_file`. Keep the file outside the repository, set its parent directory to mode `0700`, and set the file itself to mode `0600`. Environment variables are more easily exposed through container inspection, diagnostics, or logs, so prefer file-based secrets when possible.
+
+```yaml
+services:
+  rails-app:
+    env_file:
+      - "${HOME}/.config/pmrails/projects/${PMRAILS_PROJECT_NAME}/rails-app.env"
+```
+
+To support both file-based development secrets and environment-based production configuration, fall back to a regular environment variable only if the `*_FILE` variable is unset. If `*_FILE` is set but the referenced file cannot be read, the application should fail immediately rather than silently use another value:
+
+```ruby
+def read_secret(name)
+  path = ENV["#{name}_FILE"]
+  path ? File.read(path).chomp : ENV.fetch(name)
+end
+```
+
+### Use Project-Local Storage for Non-Sensitive Artifacts
+
+When credentials are needed only to retrieve non-sensitive code or data, perform the retrieval on the host and store the result in `.pmrails/var/share/` or `.pmrails/var/home/`. The container can access it through `XDG_DATA_HOME` or `HOME`, without receiving the credentials themselves.
+
+> **Warning:** Do not use `.pmrails/var/` as the primary location for long-lived secrets. Prefer a secrets directory outside the project. If temporary sensitive data must be placed under `.pmrails/var/`, restrict its permissions, exclude it from build contexts and backups, and remove it when no longer needed.
+
+Confirm that `.gitignore` contains an entry for `.pmrails/var/`, and add one if necessary. Remember that `.gitignore` is not a security boundary.
+
+### Additional Practices
+
+#### Team Distribution
+
+Never commit plaintext files that contain secrets, such as `.env` files. Use tools such as 1Password CLI, AWS Secrets Manager, or SOPS to retrieve or decrypt secrets locally instead of distributing them through ad hoc files or messages.
+
+#### Local Emulators
+
+Prefer emulators when real cloud access is unnecessary. Official local emulators are available for many major cloud services, so check the service's official tooling first. For AWS-compatible development, [Moto server mode](https://docs.getmoto.org/en/latest/docs/server_mode.html) is one unofficial option.
+
+> **Warning:** Configure an explicit local endpoint and dummy credentials. Never expose real credentials to the emulator. Ensure that the application fails when the endpoint is missing instead of silently falling back to the real service.
+
+
 ## Automatic Gem Sharing
 
 PmRails automatically stores installed gems in Podman named volumes mounted as `GEM_HOME`.
