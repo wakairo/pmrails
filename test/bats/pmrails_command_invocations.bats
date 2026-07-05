@@ -241,6 +241,7 @@ setup() {
 @test "pmrails_podman_compose generates the port override before running and preserves compose arguments" {
     local expected_call=(
         PMRAILS_RUBY_VERSION=3.3.7
+        PMRAILS_PROJECT_NAME=sample_app
         _PMRAILS_SCRIPT_DIR=/opt/pmrails/bin
         _PMRAILS_GEM_HOME=/gem-home
         _PMRAILS_VOLUME_NAME=pmrails-gem_home-4.0.3

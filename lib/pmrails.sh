@@ -556,7 +556,8 @@ EOF
 #
 # Globals:
 #   PMRAILS_RUBY_VERSION - Read. Exported to compose environment.
-#   PMRAILS_PROJECT_NAME - Read. Passed to podman-compose via the -p flag.
+#   PMRAILS_PROJECT_NAME - Read. Exported to compose environment and
+#       passed to podman-compose via the -p flag.
 #   PMRAILS_COMPOSE_FILE - Read. Path to the user/project-specific compose file.
 #   _PMRAILS_GEM_HOME - Read. Exported for the shared GEM_HOME mount.
 #   _PMRAILS_VOLUME_NAME - Read. Exported for the external shared GEM_HOME
@@ -574,6 +575,7 @@ pmrails_podman_compose() {
     pmrails_generate_compose_override
     env \
         PMRAILS_RUBY_VERSION="${PMRAILS_RUBY_VERSION}" \
+        PMRAILS_PROJECT_NAME="${PMRAILS_PROJECT_NAME}" \
         _PMRAILS_SCRIPT_DIR="${_PMRAILS_SCRIPT_DIR}" \
         _PMRAILS_GEM_HOME="${_PMRAILS_GEM_HOME}" \
         _PMRAILS_VOLUME_NAME="${_PMRAILS_VOLUME_NAME}" \
