@@ -25,7 +25,7 @@ setup() {
     assert_equal "$PMRAILS_RUBY_VERSION" "3.3.7"
     assert_equal "$PMRAILS_IMAGE_REPO" "pmrails-sample_app"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
-    assert_equal "$PMRAILS_PORTS" "3000:3000"
+    assert_equal "$PMRAILS_PORTS" "127.0.0.1:3000:3000"
     assert_equal "$PMRAILS_PROJECT_NAME" "sample_app"
     assert_equal "$PMRAILS_DOCKERFILE" ".pmrails/Dockerfile"
     assert_equal "$PMRAILS_BUILD_CONTEXT" ".pmrails/build_context"
@@ -69,7 +69,7 @@ setup() {
     assert_equal "$PMRAILS_PROJECT_NAME" "configured_df"
     assert_equal "$PMRAILS_IMAGE_REPO" "pmrails-configured_df"
     assert_equal "$PMRAILS_COMPOSE_FILE" ".pmrails/compose.yaml"
-    assert_equal "$PMRAILS_PORTS" "3000:3000"
+    assert_equal "$PMRAILS_PORTS" "127.0.0.1:3000:3000"
     assert_equal "$PMRAILS_RUBY_VERSION_AT_NEW" "latest"
 }
 
@@ -86,7 +86,7 @@ setup() {
     pmrails_setup
 
     assert_equal "$PMRAILS_RUBY_VERSION" "3.3.7"
-    assert_equal "$PMRAILS_PORTS" "3000:3000"
+    assert_equal "$PMRAILS_PORTS" "127.0.0.1:3000:3000"
 }
 
 @test ":AUTO in caller-exported variables resets config values to automatic defaults" {
@@ -101,5 +101,5 @@ setup() {
     pmrails_setup
 
     assert_equal "$PMRAILS_RUBY_VERSION" "3.3.7"
-    assert_equal "$PMRAILS_PORTS" "3000:3000"
+    assert_equal "$PMRAILS_PORTS" "127.0.0.1:3000:3000"
 }

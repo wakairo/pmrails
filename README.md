@@ -393,7 +393,7 @@ Each file is a POSIX shell script that is sourced by the PmRails entry point. Mo
 
 ```sh
 # .pmrails/config
-PMRAILS_PORTS="3000:3000 5000:5000"
+PMRAILS_PORTS="127.0.0.1:3000:3000 127.0.0.1:5000:5000"
 PMRAILS_RUBY_VERSION_AT_NEW="3.4.8"
 ```
 
@@ -401,7 +401,7 @@ PMRAILS_RUBY_VERSION_AT_NEW="3.4.8"
 
 ### Configuration Environment Variables
 
-The variables below can be set in a configuration file, exported in your shell, or passed inline before a `pmrails-*` command (for example: `PMRAILS_PORTS=8080:3000 pmrails-run bin/rails server -b 0.0.0.0`).
+The variables below can be set in a configuration file, exported in your shell, or passed inline before a `pmrails-*` command (for example: `PMRAILS_PORTS=127.0.0.1:8080:3000 pmrails-run bin/rails server -b 0.0.0.0`).
 
 #### `:AUTO`
 
@@ -444,27 +444,30 @@ PMRAILS_RUBY_VERSION_AT_NEW=3.4.8 pmrails-new-plus 8.1 sample_app
 
 #### `PMRAILS_PORTS`
 
-Configures the port mappings published by `pmrails-run`, and by the `rails-app` service in `pmrails-compose`. Each token is either `HOST_PORT:CONTAINER_PORT` or `CONTAINER_PORT` alone; multiple mappings are separated by spaces. When only a container port is given, the host port is auto-allocated by Podman; check the assigned port with `podman port <container>`.
+Configures the port mappings published by `pmrails-run`, and by the `rails-app` service in `pmrails-compose`. Multiple mappings are separated by spaces.
 
-**Default:**
+By default, PmRails binds the published host port to the IPv4 loopback address, so Rails is reachable from the host but normally not from other machines:
 
 ```sh
-PMRAILS_PORTS="3000:3000"
+PMRAILS_PORTS="127.0.0.1:3000:3000"
 ```
 
-**Examples (used inline before a command):**
+Common examples (used inline before a command):
 
 ```sh
-# Publish container port 3000 on host port 3001
-PMRAILS_PORTS="3001:3000" pmrails-run bin/rails server -b 0.0.0.0
+# Publish container port 3000 on host port 3001, still local-only
+PMRAILS_PORTS="127.0.0.1:3001:3000" pmrails-run bin/rails server -b 0.0.0.0
 
-# Run a one-shot command without publishing any ports (useful for analyzers
-# and other CLI tools that do not need to expose listening ports to the host)
+# Publish on a specific LAN address when another machine must connect
+PMRAILS_PORTS="192.168.1.10:3001:3000" pmrails-run bin/rails server -b 0.0.0.0
+
+# Run a command without publishing any ports
 PMRAILS_PORTS= pmrails-run bin/brakeman
-
-# Publish multiple ports / port ranges
-PMRAILS_PORTS="3000:3000 1234-1236:1234-1236" pmrails-run bin/rails server -b 0.0.0.0
 ```
+
+> **Warning:** Omitting the host IP, such as `3001:3000`, publishes on all host IP addresses. Prefer `127.0.0.1:` for local-only development, or an explicit host IP when remote access is intentionally needed.
+
+For less common cases, Podman also supports port ranges (`127.0.0.1:1234-1236:1234-1236`), automatic host-port allocation (`127.0.0.1::3000`; bare `5000` allocates on all host IP addresses), and multiple mappings (`"127.0.0.1:3001:3000 127.0.0.1::5000"`). Check automatically assigned ports with `podman port <container>` while the container is running.
 
 #### `PMRAILS_PROJECT_NAME`
 
