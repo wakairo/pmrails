@@ -281,7 +281,7 @@ pmrails_fill_dynamic_defaults() {
     PMRAILS_RUBY_VERSION_SUFFIX=${PMRAILS_RUBY_VERSION_SUFFIX:-}
     PMRAILS_RUBY_VERSION_AT_NEW=${PMRAILS_RUBY_VERSION_AT_NEW:-'latest'}
     if [ -z "${PMRAILS_PORTS+x}" ]; then
-        PMRAILS_PORTS='3000:3000'
+        PMRAILS_PORTS='127.0.0.1:3000:3000'
     fi
     PMRAILS_COMPOSE_FILE=${PMRAILS_COMPOSE_FILE:-'.pmrails/compose.yaml'}
 }

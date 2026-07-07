@@ -397,7 +397,7 @@ PmRailsは4つのスコープから設定ファイルを読み込みます。存
 
 ```sh
 # .pmrails/config
-PMRAILS_PORTS="3000:3000 5000:5000"
+PMRAILS_PORTS="127.0.0.1:3000:3000 127.0.0.1:5000:5000"
 PMRAILS_RUBY_VERSION_AT_NEW="3.4.8"
 ```
 
@@ -405,7 +405,7 @@ PMRAILS_RUBY_VERSION_AT_NEW="3.4.8"
 
 ### 設定用の環境変数
 
-以下の変数は、設定ファイルへの記述、シェルでの`export`、または`pmrails-*`コマンドの前にインラインで指定（例: `PMRAILS_PORTS=8080:3000 pmrails-run bin/rails server -b 0.0.0.0`）のいずれの方法でも設定できます。
+以下の変数は、設定ファイルへの記述、シェルでの`export`、または`pmrails-*`コマンドの前にインラインで指定（例: `PMRAILS_PORTS=127.0.0.1:8080:3000 pmrails-run bin/rails server -b 0.0.0.0`）のいずれの方法でも設定できます。
 
 #### `:AUTO`
 
@@ -448,30 +448,30 @@ PMRAILS_RUBY_VERSION_AT_NEW=3.4.8 pmrails-new-plus 8.1 sample_app
 
 #### `PMRAILS_PORTS`
 
-`pmrails-run`、および`pmrails-compose`内の`rails-app`サービスの公開ポートマッピングを設定します。
-各トークンは`HOST_PORT:CONTAINER_PORT`または`CONTAINER_PORT`単独のいずれかで、複数のマッピングはスペースで区切ります。
-コンテナポートのみを指定した場合、ホスト側のポートはPodmanが自動的に割り当てます。
-割り当てられたポートは`podman port <container>`で確認できます。
+`pmrails-run`、および`pmrails-compose`内の`rails-app`サービスの公開ポートマッピングを設定します。複数のマッピングはスペースで区切ります。
 
-**デフォルト:**
+デフォルトでは、PmRailsは公開されるホスト側ポートをIPv4のループバックアドレスにバインドします。そのため、Railsはホストからはアクセスできますが、通常は他のマシンからはアクセスできません。
 
 ```sh
-PMRAILS_PORTS="3000:3000"
+PMRAILS_PORTS="127.0.0.1:3000:3000"
 ```
 
-**例（コマンドの前にインラインで指定）:**
+よく使う例（コマンドの前にインラインで指定）:
 
 ```sh
-# コンテナのポート3000をホストのポート3001に公開
-PMRAILS_PORTS="3001:3000" pmrails-run bin/rails server -b 0.0.0.0
+# コンテナのポート3000をホストのポート3001に公開する（引き続きローカルのみ）
+PMRAILS_PORTS="127.0.0.1:3001:3000" pmrails-run bin/rails server -b 0.0.0.0
 
-# ポートを一切公開せずに単発コマンドを実行（アナライザなど、
-# ホストへリスニングポートを公開する必要のないCLIツールで有用）
+# 別のマシンから接続する必要がある場合に、特定のLANアドレスで公開する
+PMRAILS_PORTS="192.168.1.10:3001:3000" pmrails-run bin/rails server -b 0.0.0.0
+
+# ポートを一切公開せずにコマンドを実行する
 PMRAILS_PORTS= pmrails-run bin/brakeman
-
-# 複数のポート / ポート範囲を公開
-PMRAILS_PORTS="3000:3000 1234-1236:1234-1236" pmrails-run bin/rails server -b 0.0.0.0
 ```
+
+> **警告:** `3001:3000`のようにホストIPを省略すると、すべてのホストIPアドレスでポートが公開されます。ローカル開発のみで使う場合は`127.0.0.1:`を、意図的にリモートアクセスを受け付ける場合は明示的なホストIPを指定することを推奨します。
+
+頻繁には使わないかもしれませんが、Podmanは、ポート範囲（`127.0.0.1:1234-1236:1234-1236`）、ホスト側ポートの自動割り当て（`127.0.0.1::3000`。`5000`のようにホストIPを伴わない指定では、すべてのホストIPアドレス上で自動割り当て）、複数マッピング（`"127.0.0.1:3001:3000 127.0.0.1::5000"`）にも対応しています。自動割り当てされたポートは、コンテナの実行中に`podman port <container>`で確認できます。
 
 #### `PMRAILS_PROJECT_NAME`
 
