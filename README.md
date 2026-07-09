@@ -822,6 +822,10 @@ podman rm postgres
 PmRails is designed as a lightweight, predictable wrapper around Podman.
 To maintain simplicity and transparency, it makes several assumptions and trade-offs.
 
+### Not a Security Sandbox
+
+PmRails uses containers to isolate development dependencies, but it is **not** a security sandbox for untrusted code. It is not designed for containment of malicious attacks. Do not use PmRails to evaluate untrusted repositories; use a disposable VM instead.
+
 ### SELinux Considerations
 
 On systems with SELinux enabled, mounted host directories may not be writable from inside the container.
