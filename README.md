@@ -473,6 +473,8 @@ For less common cases, Podman also supports port ranges (`127.0.0.1:1234-1236:12
 
 Overrides the project name. PmRails uses it as the `podman-compose` project name (`-p` flag) and as part of the project-specific image repository name. When unset, PmRails derives it from the basename of the current directory (lowercased, sanitized to lowercase alphanumerics and underscores, truncated to 16 characters).
 
+> **Note:** Different directory names can result in the same project name after sanitization and 16-character truncation. If you work on multiple projects with similar directory names, set `PMRAILS_PROJECT_NAME` explicitly to avoid collisions in Compose resources and project-specific image names.
+
 ```sh
 PMRAILS_PROJECT_NAME="sample_app"
 ```
