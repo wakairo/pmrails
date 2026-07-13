@@ -279,7 +279,7 @@ pmrails-init --database=postgresql
 
 通常の作業の流れは以下のとおりです。
 
-1. `pmrails-compose up -d`で環境を立ち上げます。
+1. `pmrails-compose up -d --wait`で環境を立ち上げます。
 2. 環境稼働中に`pmrails-cmpexe ...`で作業を行います。
 3. 中断したいときは`pmrails-compose stop`で環境を一時停止します。
 4. `pmrails-compose start`で環境を再開します。
@@ -288,7 +288,7 @@ pmrails-init --database=postgresql
 まずは以下のコマンドを実行します。
 
 ```sh
-pmrails-compose up -d
+pmrails-compose up -d --wait
 ```
 
 プロジェクトを初めて使用するとき、`.pmrails/compose.yaml`を変更した後、または環境がどのような状態かわからないときでも、`up`は使用できます。
@@ -338,7 +338,7 @@ pmrails-compose start
 ```
 
 `start`は、以前停止した環境をそのまま使いたいときに使用します。
-`.pmrails/compose.yaml`を変更している場合は、現在の設定と環境を整合させるために、代わりに`pmrails-compose up -d`を使用してください。
+`.pmrails/compose.yaml`を変更している場合は、現在の設定と環境を整合させるために、代わりに`pmrails-compose up -d --wait`を使用してください。
 
 作業が完全に終わって、Composeが管理するコンテナとネットワークを削除したいときは、以下を実行します。
 

@@ -276,7 +276,7 @@ It also patches `test/application_system_test_case.rb` (when present) so that sy
 
 The usual workflow is:
 
-1. Bring the environment up with `pmrails-compose up -d`.
+1. Bring the environment up with `pmrails-compose up -d --wait`.
 2. Do your work with `pmrails-cmpexe ...` while it is running.
 3. Pause it with `pmrails-compose stop` when you want to come back later.
 4. Resume it with `pmrails-compose start`.
@@ -285,7 +285,7 @@ The usual workflow is:
 Start with:
 
 ```sh
-pmrails-compose up -d
+pmrails-compose up -d --wait
 ```
 
 Use `up` the first time you use the project, after changing `.pmrails/compose.yaml`, or whenever you are unsure what state the environment is in.
@@ -335,7 +335,7 @@ pmrails-compose start
 ```
 
 Use `start` when you simply want to continue a previously stopped environment as-is.
-If you changed `.pmrails/compose.yaml`, use `pmrails-compose up -d` instead so Compose can reconcile the environment with the current configuration.
+If you changed `.pmrails/compose.yaml`, use `pmrails-compose up -d --wait` instead so Compose can reconcile the environment with the current configuration.
 
 When you are truly finished and want to remove the Compose-managed containers and network, run:
 
