@@ -526,7 +526,9 @@ If `.pmrails/compose.yaml` exists, `pmrails-compose` layers it on top of an inte
 2. Auto-generated overlay.
 3. Your `.pmrails/compose.yaml`.
 
-`pmrails-init` generates a `compose.yaml` that includes a service for the chosen database (SQLite3 needs none) and a Selenium service for system tests. You can edit this file freely or replace it entirely.
+`pmrails-init` generates a `compose.yaml` that includes a service for the chosen database (SQLite3 needs none) and a Selenium service for system tests. You can customize or replace this file, subject to the requirements below.
+
+> **Important:** Do not use relative host paths (e.g., `./log`) in this file, because Compose resolves them relative to the first file (PmRails' internal base Compose file). Instead, use paths that resolve to absolute paths after variable interpolation. For paths within the current project, prefix the path with `${PWD}` (e.g., `${PWD}/log`).
 
 > **Important:** When modifying or replacing this file, **you must use `rails-app` as the service name for your Rails container**. PmRails internal commands and auto-generated configurations explicitly rely on this exact service name to function correctly.
 
