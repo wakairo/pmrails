@@ -596,11 +596,11 @@ services:
     environment:
       API_KEY_FILE: /run/secrets/api_key
     secrets:
-      - api_key
+    - api_key
 
 secrets:
   api_key:
-    file: "${HOME}/.config/pmrails/projects/${PMRAILS_PROJECT_NAME}/secrets/api_key"
+    file: "${XDG_CONFIG_HOME:-${HOME:?HOME is not set}/.config}/pmrails/projects/${PMRAILS_PROJECT_NAME}/secrets/api_key"
 ```
 
 > **Note:** The secret's source file remains plaintext on the host. Compose secrets are not an encrypted store; they only limit which services can read the value.
@@ -621,7 +621,7 @@ If your production platform expects secrets as environment variables (for exampl
 services:
   rails-app:
     env_file:
-      - "${HOME}/.config/pmrails/projects/${PMRAILS_PROJECT_NAME}/rails-app.env"
+    - "${XDG_CONFIG_HOME:-${HOME:?HOME is not set}/.config}/pmrails/projects/${PMRAILS_PROJECT_NAME}/rails-app.env"
 ```
 
 To support both file-based development secrets and environment-based production configuration, fall back to a regular environment variable only if the `*_FILE` variable is unset. If `*_FILE` is set but the referenced file cannot be read, the application should fail immediately rather than silently use another value:
