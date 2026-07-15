@@ -276,7 +276,7 @@ It also patches `test/application_system_test_case.rb` (when present) so that sy
 
 The usual workflow is:
 
-1. Bring the environment up with `pmrails-compose up -d`.
+1. Bring the environment up with `pmrails-compose up -d --wait`.
 2. Do your work with `pmrails-cmpexe ...` while it is running.
 3. Pause it with `pmrails-compose stop` when you want to come back later.
 4. Resume it with `pmrails-compose start`.
@@ -285,7 +285,7 @@ The usual workflow is:
 Start with:
 
 ```sh
-pmrails-compose up -d
+pmrails-compose up -d --wait
 ```
 
 Use `up` the first time you use the project, after changing `.pmrails/compose.yaml`, or whenever you are unsure what state the environment is in.
@@ -335,7 +335,7 @@ pmrails-compose start
 ```
 
 Use `start` when you simply want to continue a previously stopped environment as-is.
-If you changed `.pmrails/compose.yaml`, use `pmrails-compose up -d` instead so Compose can reconcile the environment with the current configuration.
+If you changed `.pmrails/compose.yaml`, use `pmrails-compose up -d --wait` instead so Compose can reconcile the environment with the current configuration.
 
 When you are truly finished and want to remove the Compose-managed containers and network, run:
 
@@ -596,11 +596,11 @@ services:
     environment:
       API_KEY_FILE: /run/secrets/api_key
     secrets:
-      - api_key
+    - api_key
 
 secrets:
   api_key:
-    file: "${HOME}/.config/pmrails/projects/${PMRAILS_PROJECT_NAME}/secrets/api_key"
+    file: "${XDG_CONFIG_HOME:-${HOME:?HOME is not set}/.config}/pmrails/projects/${PMRAILS_PROJECT_NAME}/secrets/api_key"
 ```
 
 > **Note:** The secret's source file remains plaintext on the host. Compose secrets are not an encrypted store; they only limit which services can read the value.
@@ -621,7 +621,7 @@ If your production platform expects secrets as environment variables (for exampl
 services:
   rails-app:
     env_file:
-      - "${HOME}/.config/pmrails/projects/${PMRAILS_PROJECT_NAME}/rails-app.env"
+    - "${XDG_CONFIG_HOME:-${HOME:?HOME is not set}/.config}/pmrails/projects/${PMRAILS_PROJECT_NAME}/rails-app.env"
 ```
 
 To support both file-based development secrets and environment-based production configuration, fall back to a regular environment variable only if the `*_FILE` variable is unset. If `*_FILE` is set but the referenced file cannot be read, the application should fail immediately rather than silently use another value:
