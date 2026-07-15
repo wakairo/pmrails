@@ -279,7 +279,7 @@ The usual workflow is:
 1. Bring the environment up with `pmrails-compose up -d --wait`.
 2. Do your work with `pmrails-cmpexe ...` while it is running.
 3. Pause it with `pmrails-compose stop` when you want to come back later.
-4. Resume it with `pmrails-compose start`.
+4. Resume it with `pmrails-compose start --wait`.
 5. Remove it with `pmrails-compose down` when you are done.
 
 Start with:
@@ -331,7 +331,7 @@ pmrails-compose stop
 When you return, resume that stopped environment with:
 
 ```sh
-pmrails-compose start
+pmrails-compose start --wait
 ```
 
 Use `start` when you simply want to continue a previously stopped environment as-is.
