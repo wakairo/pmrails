@@ -282,7 +282,7 @@ pmrails-init --database=postgresql
 1. `pmrails-compose up -d --wait`で環境を立ち上げます。
 2. 環境稼働中に`pmrails-cmpexe ...`で作業を行います。
 3. 中断したいときは`pmrails-compose stop`で環境を一時停止します。
-4. `pmrails-compose start`で環境を再開します。
+4. `pmrails-compose start --wait`で環境を再開します。
 5. 作業が完了したら`pmrails-compose down`で環境を破棄します。
 
 まずは以下のコマンドを実行します。
@@ -334,7 +334,7 @@ pmrails-compose stop
 作業を再開する際は、停止した環境を以下で再開します。
 
 ```sh
-pmrails-compose start
+pmrails-compose start --wait
 ```
 
 `start`は、以前停止した環境をそのまま使いたいときに使用します。
