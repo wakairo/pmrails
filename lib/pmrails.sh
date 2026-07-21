@@ -23,7 +23,7 @@ readonly _PMRAILS_COMPOSE_OVERRIDE_FILE=".pmrails/var/compose.override.yaml"
 #   Writes an error message to STDERR if version parsing fails.
 # Returns:
 #   0: On success.
-#   Does not return (exits with status 3):
+#   Does not return (exits with status 1):
 #     If .ruby-version exists but no valid version can be parsed.
 pmrails_resolve_ruby_version() {
     if [ -n "${PMRAILS_RUBY_VERSION:-}" ]; then
@@ -37,7 +37,7 @@ pmrails_resolve_ruby_version() {
     if [ -z "${PMRAILS_RUBY_VERSION}" ]; then
         printf '%s\n' 'pmrails: error: could not parse a version (major.minor.patch) from .ruby-version' >&2
         printf 'pmrails: .ruby-version first line: "%s"\n' "$(sed -n '1p' .ruby-version)" >&2
-        exit 3
+        exit 1
     fi
 }
 
@@ -118,7 +118,7 @@ pmrails_restore_env() {
 # Returns:
 #   0: The value is ":AUTO".
 #   1: The value is a normal literal configuration value.
-#   Does not return (exits with status 3):
+#   Does not return (exits with status 1):
 #     If the value starts with ":" but is not a supported command.
 pmrails_is_auto_config_value() {
     case "$1" in
@@ -127,7 +127,7 @@ pmrails_is_auto_config_value() {
         ;;
     :*)
         printf 'pmrails: error: unsupported reserved PMRAILS configuration value: "%s"\n' "$1" >&2
-        exit 3
+        exit 1
         ;;
     *)
         return 1
@@ -149,7 +149,7 @@ pmrails_is_auto_config_value() {
 #   PMRAILS_* - Read/Modified for known PmRails configuration variables.
 # Returns:
 #   0: On success.
-#   Does not return (exits with status 3):
+#   Does not return (exits with status 1):
 #     If any known configuration variable contains an unsupported reserved
 #     value.
 pmrails_unset_auto_config_variables() {
@@ -255,10 +255,9 @@ pmrails_load_config_files() {
 #   PWD - Read. Must be set. Used to derive PMRAILS_PROJECT_NAME.
 # Returns:
 #   0: On success.
-#   Does not return (exits with status 2): If PMRAILS_PROJECT_NAME is resolved
-#       to empty or PWD is unset or empty.
-#   Does not return (exits with status 3): If .ruby-version exists but
-#       no valid version can be parsed. (propagated from
+#   Does not return (exits with status 1): If PMRAILS_PROJECT_NAME is resolved
+#       to empty, if PWD is unset or empty, or if .ruby-version exists but no
+#       valid version can be parsed (propagated from
 #       pmrails_resolve_ruby_version).
 pmrails_fill_dynamic_defaults() {
     pmrails_resolve_ruby_version
@@ -266,7 +265,7 @@ pmrails_fill_dynamic_defaults() {
     PMRAILS_BUILD_CONTEXT=${PMRAILS_BUILD_CONTEXT:-'.pmrails/build_context'}
     if [ -z "${PWD:-}" ]; then
         printf '%s\n' 'pmrails: error: PWD can not be unset nor empty' >&2
-        exit 2
+        exit 1
     fi
     # shellcheck disable=SC2018,SC2019
     PMRAILS_PROJECT_NAME=${PMRAILS_PROJECT_NAME:-"$(
@@ -275,7 +274,7 @@ pmrails_fill_dynamic_defaults() {
     )"}
     if [ -z "${PMRAILS_PROJECT_NAME}" ]; then
         printf '%s\n' 'pmrails: error: PMRAILS_PROJECT_NAME can not be empty' >&2
-        exit 2
+        exit 1
     fi
     pmrails_resolve_image_repo
     PMRAILS_RUBY_VERSION_SUFFIX=${PMRAILS_RUBY_VERSION_SUFFIX:-}
@@ -318,7 +317,7 @@ pmrails_fill_dynamic_defaults() {
 #   _PMRAILS_ENV_SNAPSHOT - Modified transiently during setup, then unset.
 # Returns:
 #   0: On success.
-#   Does not return (exits with status 2 or 3): Propagates fatal errors from
+#   Does not return (exits with status 1): Propagates fatal errors from
 #       underlying resolution functions if prerequisites are unmet or parsing
 #       fails.
 pmrails_setup() {

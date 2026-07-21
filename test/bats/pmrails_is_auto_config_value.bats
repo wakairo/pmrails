@@ -7,21 +7,34 @@ setup() {
     unset_pmrails_vars
 }
 
-@test "returns failure for a normal literal configuration value" {
-    run pmrails_is_auto_config_value "literal"
+# Returning 0 distinguishes a returned status from the required exit status 1.
+call_is_auto_config_value_and_succeed_on_return() {
+    if pmrails_is_auto_config_value "$1"; then
+        :
+    fi
+
+    return 0
+}
+
+@test "returns status 1 for a normal literal configuration value without exiting" {
+    local status
+
+    if pmrails_is_auto_config_value "literal"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    assert_equal "$status" "1"
+}
+
+@test "returns status 0 for :AUTO" {
+    pmrails_is_auto_config_value ":AUTO"
+}
+
+@test "exits with status 1 for an unsupported reserved configuration value" {
+    run call_is_auto_config_value_and_succeed_on_return ":RESET"
 
     assert_failure 1
-}
-
-@test "returns success for :AUTO" {
-    run pmrails_is_auto_config_value ":AUTO"
-
-    assert_success
-}
-
-@test "rejects unsupported reserved configuration values" {
-    run pmrails_is_auto_config_value ":RESET"
-
-    assert_failure 3
-    assert_output --partial 'pmrails: error: unsupported reserved PMRAILS configuration value'
+    assert_output 'pmrails: error: unsupported reserved PMRAILS configuration value: ":RESET"'
 }

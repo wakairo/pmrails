@@ -62,7 +62,7 @@ setup() {
 @test "exits with non-zero status when .ruby-version contains an invalid version" {
     write_lines_to ".ruby-version" "4.3"
     run pmrails_resolve_ruby_version
-    assert_failure 3
+    assert_failure 1
     assert_output --partial 'pmrails: error: could not parse a version'
     assert_output --partial 'pmrails: .ruby-version first line: "4.3"'
 }
@@ -70,7 +70,7 @@ setup() {
 @test "exits with non-zero status when .ruby-version is empty" {
     touch .ruby-version
     run pmrails_resolve_ruby_version
-    assert_failure 3
+    assert_failure 1
     assert_output --partial 'pmrails: error: could not parse a version'
     assert_output --partial 'pmrails: .ruby-version first line: ""'
 }

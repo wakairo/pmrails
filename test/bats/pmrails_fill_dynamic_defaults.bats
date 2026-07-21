@@ -85,7 +85,7 @@ setup() {
 
     run pmrails_fill_dynamic_defaults
 
-    assert_failure 3
+    assert_failure 1
     assert_output --partial 'pmrails: error: could not parse a version'
 }
 
@@ -108,20 +108,20 @@ setup() {
 @test "exits with non-zero status when PWD is unset" {
     unset PWD
     run pmrails_fill_dynamic_defaults
-    assert_failure 2
+    assert_failure 1
     assert_output --partial 'pmrails: error: PWD can not be unset nor empty'
 }
 
 @test "exits with non-zero status when PWD is an empty string" {
     PWD=""
     run pmrails_fill_dynamic_defaults
-    assert_failure 2
+    assert_failure 1
     assert_output --partial 'pmrails: error: PWD can not be unset nor empty'
 }
 
 @test "exits with non-zero status when the sanitized directory name becomes empty" {
     enter_test_project_dir "!!!___---"
     run pmrails_fill_dynamic_defaults
-    assert_failure 2
+    assert_failure 1
     assert_output --partial 'pmrails: error: PMRAILS_PROJECT_NAME can not be empty'
 }
